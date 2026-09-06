@@ -84,19 +84,34 @@ cmake --install build_x64 --prefix release/RelWithDebInfo --config RelWithDebInf
 (yönetici hakkı gerekmez):
 
 ```
-%APPDATA%\obs-studio\plugins\
+%PROGRAMDATA%\obs-studio\plugins\
 ```
 
 Sonuç şöyle görünmeli:
 
 ```
-%APPDATA%\obs-studio\plugins\obs-drop-alert\bin\64bit\obs-drop-alert.dll
-%APPDATA%\obs-studio\plugins\obs-drop-alert\data\alert.wav
-%APPDATA%\obs-studio\plugins\obs-drop-alert\data\locale\*.ini
+C:\ProgramData\obs-studio\plugins\obs-drop-alert\bin\64bit\obs-drop-alert.dll
+C:\ProgramData\obs-studio\plugins\obs-drop-alert\data\alert.wav
+C:\ProgramData\obs-studio\plugins\obs-drop-alert\data\locale\*.ini
 ```
 
+> **Dikkat: `%APPDATA%` değil `%PROGRAMDATA%`.** OBS Windows'ta kullanıcı
+> eklentilerini yalnızca ProgramData altında arar
+> (`frontend/widgets/OBSBasic.cpp`, `AddExtraModulePaths()` →
+> `GetProgramDataPath(..., "obs-studio/plugins/%module%")`). `%APPDATA%` altına
+> konan eklenti hiç taranmaz, log'da da hiçbir hata görünmez — sadece sessizce
+> yok sayılır. (Ayarlar dosyası ise `%APPDATA%` altındadır; ikisi farklı yerler.)
+
+Geliştirme sırasında kopyalamadan denemek için `OBS_PLUGINS_PATH` ve
+`OBS_PLUGINS_DATA_PATH` ortam değişkenleri de kullanılabilir.
+
 OBS'i yeniden başlat. Araçlar menüsünde **Drop Uyarısı Ayarları** görünüyorsa
-eklenti yüklenmiştir.
+eklenti yüklenmiştir. Log'da şu satırlar olmalı:
+
+```
+[obs-drop-alert] plugin loaded successfully (version 1.0.0)
+[obs-drop-alert] drop monitor started
+```
 
 ## Ayarlar nerede tutuluyor
 
