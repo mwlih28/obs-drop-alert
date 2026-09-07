@@ -30,6 +30,8 @@ edilmeden sürebiliyor — bu eklentide uyarı kendisi dikkat çekiyor.
 > English and Turkish. Windows installer on the
 > [Releases page](https://github.com/mwlih28/obs-drop-alert/releases) — it finds
 > your OBS installation on its own and needs no administrator rights.
+> **Windows only** — the alert sound uses `winmm` and the taskbar flash uses
+> `FlashWindowEx`, so macOS and Linux are not supported.
 > GPL-2.0.
 
 ## Ne izliyor
@@ -107,6 +109,11 @@ kullanır ve native pencereler kardeş Qt widget'larının her zaman üstüne ç
 bu yüzden ana pencereye sahipli bir `Qt::Tool` penceresi tercih edildi. Bu sayede
 katman her şeyin üstünde durur, OBS ile birlikte gizlenir, başka uygulamaların
 önüne geçmez.
+
+## Yalnızca Windows
+
+Uyarı sesi `winmm`, görev çubuğu flaşı `FlashWindowEx` kullanıyor; ikisi de
+Windows API'si. macOS ve Linux desteklenmiyor, CI de yalnızca Windows derliyor.
 
 ## Derleme (Windows)
 
