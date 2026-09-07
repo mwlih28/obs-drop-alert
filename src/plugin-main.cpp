@@ -28,26 +28,38 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include <QAction>
 #include <QMainWindow>
+#include <QMenu>
+#include <QMenuBar>
 #include <QPointer>
+#include <QSignalBlocker>
 
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE(PLUGIN_NAME, "en-US")
 
 namespace {
 
+/* OBS'in Yardım menüsünün .ui dosyasındaki nesne adı; kendi menümüzü onun
+ * soluna eklemek için kullanılıyor, böylece Yardım her zaman en sağda kalır. */
+constexpr const char *kHelpMenuObjectName = "menuBasic_MainMenu_Help";
+
 /*
  * Parçaları birbirine bağlayan sahip nesne. Kasten QObject değil: tüm bağlantılar
- * lambda + bağlam nesnesi (overlay/alerter) ile kuruluyor, böylece bu başlıkta
- * Q_OBJECT/moc gerekmeden bağlantılar üyeler yok edildiğinde otomatik kopuyor.
+ * lambda + bağlam nesnesi ile kuruluyor, böylece burada Q_OBJECT/moc gerekmeden
+ * bağlantılar üyeler yok edildiğinde otomatik kopuyor.
  */
 struct DropAlert {
-	QWidget *mainWindow = nullptr;
+	QMainWindow *mainWindow = nullptr;
 	DropMonitor *monitor = nullptr;
 	AlertOverlay *overlay = nullptr;
 	Alerter *alerter = nullptr;
 	QPointer<SettingsDialog> dialog;
 
-	explicit DropAlert(QWidget *window) : mainWindow(window)
+	QPointer<QMenu> menu;
+	QPointer<QAction> actTest;
+
+	bool testActive = false;
+
+	explicit DropAlert(QMainWindow *window) : mainWindow(window)
 	{
 		overlay = new AlertOverlay(window);
 		alerter = new Alerter(window);
@@ -67,6 +79,7 @@ struct DropAlert {
 			alerter->stopAlarm();
 		});
 
+		buildMenu();
 		monitor->start();
 	}
 
@@ -79,10 +92,51 @@ struct DropAlert {
 		if (overlay)
 			overlay->stopAlarm();
 
+		/* Menüyü menü çubuğundan sök, yoksa OBS kapanırken sahipsiz kalır. */
+		if (menu) {
+			if (QMenuBar *bar = mainWindow ? mainWindow->menuBar() : nullptr)
+				bar->removeAction(menu->menuAction());
+			delete menu.data();
+		}
+
 		delete dialog.data();
 		delete monitor;
 		delete overlay;
 		delete alerter;
+	}
+
+	/* OBS'in üst menü çubuğuna kendi menümüzü ekler. obs_frontend API'si yalnızca
+	 * Araçlar menüsüne ekleme sunduğu için menü çubuğuna doğrudan Qt üzerinden
+	 * giriliyor; ana pencereyi zaten obs_frontend_get_main_window()'dan alıyoruz. */
+	void buildMenu()
+	{
+		QMenuBar *bar = mainWindow ? mainWindow->menuBar() : nullptr;
+		if (!bar) {
+			obs_log(LOG_WARNING, "no menu bar, settings will not be reachable");
+			return;
+		}
+
+		menu = new QMenu(QString::fromUtf8(obs_module_text("Menu.Title")), bar);
+		menu->setObjectName("dropAlertMenu");
+
+		QAction *actSettings = menu->addAction(QString::fromUtf8(obs_module_text("Menu.Settings")));
+		menu->addSeparator();
+		actTest = menu->addAction(QString::fromUtf8(obs_module_text("Menu.Test")));
+		actTest->setCheckable(true);
+
+		QObject::connect(actSettings, &QAction::triggered, menu, [this]() { openSettings(); });
+		QObject::connect(actTest.data(), &QAction::toggled, menu, [this](bool on) { setTestAlarm(on); });
+
+		QAction *before = nullptr;
+		if (QMenu *help = bar->findChild<QMenu *>(kHelpMenuObjectName))
+			before = help->menuAction();
+		if (!before && !bar->actions().isEmpty())
+			before = bar->actions().last();
+
+		if (before)
+			bar->insertMenu(before, menu);
+		else
+			bar->addMenu(menu);
 	}
 
 	void applySettings()
@@ -92,10 +146,33 @@ struct DropAlert {
 		alerter->applySettings();
 	}
 
+	/* Test alarmının tek doğruluk kaynağı: menüdeki geçmeli öğe ile ayar
+	 * penceresindeki düğme buradan senkron tutuluyor. */
+	void setTestAlarm(bool on)
+	{
+		if (testActive == on)
+			return;
+		testActive = on;
+
+		if (actTest) {
+			const QSignalBlocker blocker(actTest.data());
+			actTest->setChecked(on);
+		}
+		if (dialog)
+			dialog->setTestChecked(on);
+
+		if (on)
+			monitor->fireTestAlarm();
+		else
+			monitor->clearTestAlarm();
+	}
+
 	/* Yayın/kayıt yeniden başladığında sayaçlar sıfırlanır; kayan pencereyi de
 	 * boşaltmazsak ilk saniyelerde sahte bir sıçrama görürüz. */
 	void resetWindow()
 	{
+		if (testActive)
+			return;
 		monitor->stop();
 		monitor->start();
 	}
@@ -108,14 +185,11 @@ struct DropAlert {
 					 [this]() { applySettings(); });
 			QObject::connect(dialog.data(), &SettingsDialog::soundPreviewRequested, alerter,
 					 [this]() { alerter->previewSound(); });
-			QObject::connect(dialog.data(), &SettingsDialog::testAlarmRequested, overlay, [this](bool on) {
-				if (on)
-					monitor->fireTestAlarm();
-				else
-					monitor->clearTestAlarm();
-			});
+			QObject::connect(dialog.data(), &SettingsDialog::testAlarmRequested, overlay,
+					 [this](bool on) { setTestAlarm(on); });
 		}
 
+		dialog->setTestChecked(testActive);
 		dialog->show();
 		dialog->raise();
 		dialog->activateWindow();
@@ -172,15 +246,6 @@ void onFrontendEvent(enum obs_frontend_event event, void *)
 bool obs_module_load(void)
 {
 	obs_log(LOG_INFO, "plugin loaded successfully (version %s)", PLUGIN_VERSION);
-
-	auto *action = static_cast<QAction *>(obs_frontend_add_tools_menu_qaction(obs_module_text("Menu.Settings")));
-	if (action) {
-		QObject::connect(action, &QAction::triggered, []() {
-			if (g_dropAlert)
-				g_dropAlert->openSettings();
-		});
-	}
-
 	obs_frontend_add_event_callback(onFrontendEvent, nullptr);
 	return true;
 }

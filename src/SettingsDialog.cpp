@@ -363,14 +363,20 @@ void SettingsDialog::onToggleTest(bool checked)
 	emit testAlarmRequested(checked);
 }
 
+void SettingsDialog::setTestChecked(bool on)
+{
+	if (!m_test || m_test->isChecked() == on)
+		return;
+	const QSignalBlocker blocker(m_test);
+	m_test->setChecked(on);
+}
+
 void SettingsDialog::done(int result)
 {
-	/* Diyalog kapanırken test alarmı açık kalmasın. */
-	if (m_test && m_test->isChecked()) {
+	/* Diyalog kapanırken test alarmı açık kalmasın. setChecked toggled sinyalini
+	 * yayar, o da denetleyiciye gidip alarmı gerçekten söndürür. */
+	if (m_test && m_test->isChecked())
 		m_test->setChecked(false);
-	} else {
-		emit testAlarmRequested(false);
-	}
 
 	/* İptal edilirse diskteki ayarlara geri dön: test sırasında storeToSettings()
 	 * bellekteki ayarları değiştirmiş olabilir. */

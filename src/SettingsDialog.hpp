@@ -40,6 +40,10 @@ class SettingsDialog : public QDialog {
 public:
 	explicit SettingsDialog(QWidget *parent = nullptr);
 
+	/* Test alarmı menüden de açılıp kapatılabildiği için düğmenin durumu
+	 * dışarıdan senkronlanır; sinyal yaymadan ayarlar. */
+	void setTestChecked(bool on);
+
 signals:
 	/* Ayarlar kaydedildi; izleyici ve katman kendini yenilemeli. */
 	void settingsApplied();

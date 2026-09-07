@@ -31,7 +31,14 @@ aşımdan sonra başlar, M saniye (varsayılan 3) temiz geçince söner.
 
 ## Uyarı biçimleri
 
-Hepsi Araçlar → **Drop Uyarısı Ayarları** altından ayarlanabilir:
+Hepsi OBS'in üst menü çubuğundaki **Drop Uyarısı** menüsünden ayarlanabilir
+(Araçlar ile Yardım arasında). Menüde iki şey var: **Ayarlar...** ve doğrudan
+açılıp kapatılabilen **Test uyarısı**.
+
+Menü, `obs_frontend_add_tools_menu_qaction` ile değil, ana pencerenin
+`QMenuBar`'ına doğrudan ekleniyor — frontend API'si yalnızca Araçlar menüsüne
+ekleme sunuyor. Yardım menüsü `menuBasic_MainMenu_Help` nesne adından bulunup
+kendi menümüz onun soluna yerleştiriliyor, böylece Yardım en sağda kalıyor.
 
 - **Kırmızı kenarlık** — OBS penceresinin çevresinde kalın kırmızı çerçeve,
   üst ortada sorunun adını ve oranını gösteren bir rozet
@@ -78,10 +85,31 @@ cmake --install build_x64 --prefix release/RelWithDebInfo --config RelWithDebInf
 > `.github/scripts/Build-Windows.ps1` kullanılmıyor: PowerShell 7 ve `CI` ortam
 > değişkeni istiyor, ayrıca uyarıları hata sayan CI presetini seçiyor.
 
-## Kurulum
+## Kurulum programı
 
-`release/RelWithDebInfo/obs-drop-alert` klasörünü olduğu gibi şuraya kopyala
-(yönetici hakkı gerekmez):
+```bash
+powershell -ExecutionPolicy Bypass -File installer/Build-Installer.ps1
+```
+
+`release/obs-drop-alert-<sürüm>-windows-x64-installer.exe` üretir (~2 MB).
+Inno Setup gerekir: `winget install --id JRSoftware.InnoSetup --exact`
+(kullanıcı kurulumu, yönetici hakkı istemez).
+
+Kurulum programı:
+
+- OBS Studio'yu kayıt defterinden (`HKLM\SOFTWARE\OBS Studio`) **kendisi bulur**,
+  bulduğu yolu özet ekranında gösterir; OBS kurulu değilse uyarıp devam edip
+  etmeyeceğini sorar.
+- Dosyaları ProgramData altına koyar, **yönetici şifresi istemez**.
+- Hedef klasör OBS'in taradığı yerin dışına alınırsa uyarır — yanlış yere kurulan
+  eklenti hiçbir hata vermeden çalışmaz, bulunması en zor durum budur.
+- OBS açıksa kapatmanı ister (`AppMutex=OBSStudioCore`).
+- Türkçe ve İngilizce, kaldırma programı da geliyor.
+
+## Elle kurulum
+
+Kurulum programını kullanmak istemezsen `release/RelWithDebInfo/obs-drop-alert`
+klasörünü olduğu gibi şuraya kopyala (yönetici hakkı gerekmez):
 
 ```
 %PROGRAMDATA%\obs-studio\plugins\
