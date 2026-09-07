@@ -22,17 +22,6 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QTimer>
 #include <QWidget>
 
-/*
- * OBS ana penceresinin üzerinde duran, tıklamaları geçiren kırmızı uyarı katmanı.
- *
- * Neden ana pencerenin çocuğu bir widget değil de ayrı bir üst düzey pencere:
- * OBS'in önizleme alanı (OBSQTDisplay) native bir alt pencere kullanır, native
- * alt pencereler ise kardeş Qt widget'larının HER ZAMAN üstüne çizilir. Ana
- * pencerenin içine konan bir katman önizlemenin altında kalırdı. Bunun yerine
- * ana pencereye "sahipli" (owned) bir Qt::Tool penceresi kullanılıyor: her şeyin
- * üstünde çizilir, OBS'le birlikte gizlenir/gösterilir, başka uygulamaların
- * üstüne çıkmaz.
- */
 class AlertOverlay : public QWidget {
 	Q_OBJECT
 
@@ -43,8 +32,6 @@ public:
 	void startAlarm();
 	void stopAlarm();
 
-	/* Kenarlıkta gösterilecek sebep metni, örn. "Ağ drop'u %4.21". */
-	/* Uyarı kartının üç satırı: ne oldu / neden / ne yapmalı. */
 	void setStatusText(const QString &title, const QString &cause, const QString &hint);
 
 	void applySettings();

@@ -28,7 +28,6 @@ namespace {
 
 Settings g_settings;
 
-/* config.json'un tam yolu; klasör yoksa oluşturulur. */
 std::string configFilePath()
 {
 	char *dir = obs_module_config_path(nullptr);
@@ -51,7 +50,7 @@ double clampDouble(double value, double lo, double hi)
 	return std::max(lo, std::min(hi, value));
 }
 
-} // namespace
+}
 
 Settings &settings()
 {
@@ -70,8 +69,6 @@ void Settings::load()
 		return;
 	}
 
-	/* Varsayılanları obs_data'ya bildirip get_* ile okuyoruz: eksik anahtarlar
-	 * otomatik olarak varsayılana düşer, yani eski config dosyaları da çalışır. */
 	obs_data_set_default_bool(data, "monitor_network", monitorNetwork);
 	obs_data_set_default_bool(data, "monitor_render", monitorRender);
 	obs_data_set_default_bool(data, "monitor_encoder", monitorEncoder);

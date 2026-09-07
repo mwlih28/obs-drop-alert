@@ -27,28 +27,18 @@ class QLineEdit;
 class QPushButton;
 class QSpinBox;
 
-/*
- * Araçlar menüsünden açılan ayar penceresi.
- *
- * "Test uyarısı" düğmesi geçmeli (checkable): basılı kaldığı sürece uyarı zinciri
- * gerçek bir drop olmuş gibi çalışır. Böylece kullanıcı eşikleri ve görünümü
- * yayına çıkmadan, drop beklemeden ayarlayabilir.
- */
 class SettingsDialog : public QDialog {
 	Q_OBJECT
 
 public:
 	explicit SettingsDialog(QWidget *parent = nullptr);
 
-	/* Test alarmı menüden de açılıp kapatılabildiği için düğmenin durumu
-	 * dışarıdan senkronlanır; sinyal yaymadan ayarlar. */
 	void setTestChecked(bool on);
 
 signals:
-	/* Ayarlar kaydedildi; izleyici ve katman kendini yenilemeli. */
+
 	void settingsApplied();
 
-	/* true: test alarmını başlat, false: durdur. */
 	void testAlarmRequested(bool on);
 
 	void soundPreviewRequested();

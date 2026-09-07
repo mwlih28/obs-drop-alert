@@ -53,7 +53,7 @@ QDoubleSpinBox *makePercentBox(double min = 0.1, double max = 100.0)
 	return box;
 }
 
-} // namespace
+}
 
 SettingsDialog::SettingsDialog(QWidget *parent) : QDialog(parent)
 {
@@ -68,7 +68,6 @@ void SettingsDialog::buildUi()
 {
 	auto *root = new QVBoxLayout(this);
 
-	/* --- İzlenecek sorunlar --- */
 	auto *monitorGroup = new QGroupBox(T("Group.Monitor"), this);
 	auto *monitorGrid = new QGridLayout(monitorGroup);
 	int row = 0;
@@ -110,7 +109,6 @@ void SettingsDialog::buildUi()
 	monitorGrid->addWidget(new QLabel(T("Label.DiskThreshold")), row, 1);
 	monitorGrid->addWidget(m_diskGb, row++, 2);
 
-	/* Olay tabanli tespitler: bunlarin esigi yok, ya olur ya olmaz. */
 	m_outputError = new QCheckBox(T("Monitor.OutputError"));
 	monitorGrid->addWidget(m_outputError, row++, 0, 1, 3);
 
@@ -129,7 +127,6 @@ void SettingsDialog::buildUi()
 	monitorGrid->setColumnStretch(0, 1);
 	root->addWidget(monitorGroup);
 
-	/* --- Görsel uyarı --- */
 	auto *visualGroup = new QGroupBox(T("Group.Visual"), this);
 	auto *visualForm = new QFormLayout(visualGroup);
 
@@ -162,7 +159,6 @@ void SettingsDialog::buildUi()
 
 	root->addWidget(visualGroup);
 
-	/* --- Ses ve bildirim --- */
 	auto *soundGroup = new QGroupBox(T("Group.Sound"), this);
 	auto *soundForm = new QFormLayout(soundGroup);
 
@@ -192,7 +188,6 @@ void SettingsDialog::buildUi()
 
 	root->addWidget(soundGroup);
 
-	/* --- Hassasiyet --- */
 	auto *tuningGroup = new QGroupBox(T("Group.Tuning"), this);
 	auto *tuningForm = new QFormLayout(tuningGroup);
 
@@ -229,7 +224,6 @@ void SettingsDialog::buildUi()
 
 	root->addWidget(tuningGroup);
 
-	/* --- Düğmeler --- */
 	auto *buttonRow = new QHBoxLayout();
 	m_test = new QPushButton(T("Button.Test"));
 	m_test->setCheckable(true);
@@ -368,15 +362,14 @@ void SettingsDialog::onRestoreDefaults()
 	settings() = Settings();
 	loadFromSettings();
 	updateEnabledStates();
-	/* Test alarmı açıksa varsayılanlarla anında görünsün. */
+
 	if (m_test->isChecked())
 		emit settingsApplied();
 }
 
 void SettingsDialog::onBrowseSound()
 {
-	/* Filtre metni koddan birleştiriliyor: Qt'nin ";;" ayıracı ile locale ini
-	 * dosyasının söz dizimi karışmasın. PlaySound yalnızca WAV çalabilir. */
+
 	const QString filter = T("Sound.Filter.Wav") + " (*.wav);;" + T("Sound.Filter.All") + " (*)";
 	const QString file = QFileDialog::getOpenFileName(this, T("Sound.PickTitle"), m_soundPath->text(), filter);
 	if (!file.isEmpty())
@@ -386,8 +379,7 @@ void SettingsDialog::onBrowseSound()
 void SettingsDialog::onToggleTest(bool checked)
 {
 	if (checked) {
-		/* Diyalogdaki güncel değerlerle test et; kullanıcı henüz kaydetmemiş
-		 * olsa bile yaptığı ayarın etkisini görsün. */
+
 		storeToSettings();
 		emit settingsApplied();
 	}
@@ -404,13 +396,10 @@ void SettingsDialog::setTestChecked(bool on)
 
 void SettingsDialog::done(int result)
 {
-	/* Diyalog kapanırken test alarmı açık kalmasın. setChecked toggled sinyalini
-	 * yayar, o da denetleyiciye gidip alarmı gerçekten söndürür. */
+
 	if (m_test && m_test->isChecked())
 		m_test->setChecked(false);
 
-	/* İptal edilirse diskteki ayarlara geri dön: test sırasında storeToSettings()
-	 * bellekteki ayarları değiştirmiş olabilir. */
 	if (result != QDialog::Accepted) {
 		settings() = Settings();
 		settings().load();

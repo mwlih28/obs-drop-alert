@@ -32,9 +32,9 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 namespace {
 
 constexpr uint64_t kNsPerSecond = 1000000000ull;
+constexpr uint64_t kSuspendLatenessMs = 60000;
 constexpr double kBytesPerGb = 1024.0 * 1024.0 * 1024.0;
 
-/* delta_dropped / delta_total olarak yuzde; payda sifirsa 0. */
 double ratePercent(int64_t droppedDelta, int64_t totalDelta)
 {
 	if (totalDelta <= 0 || droppedDelta <= 0)
@@ -42,12 +42,6 @@ double ratePercent(int64_t droppedDelta, int64_t totalDelta)
 	return (double)droppedDelta / (double)totalDelta * 100.0;
 }
 
-/*
- * Kayit ciktisinin yazdigi klasoru bulur. OBS'in kayit ayarlari profile gore
- * "path" (tek dosya) veya "directory" (bolunmus kayit) anahtarinda tutulur.
- * Kayit aktif degilse yol bilinemez; bu durumda bos donulur ve disk kontrolu
- * sessizce atlanir.
- */
 QString recordingDirectory()
 {
 	obs_output_t *out = obs_frontend_get_recording_output();
@@ -72,7 +66,7 @@ QString recordingDirectory()
 	return dir;
 }
 
-} // namespace
+}
 
 bool isEventKind(DropKind kind)
 {
@@ -81,7 +75,6 @@ bool isEventKind(DropKind kind)
 
 namespace {
 
-/* Her tur icin locale anahtar kokunu dondurur: "Alert.Network" gibi. */
 const char *kindKey(DropKind kind)
 {
 	switch (kind) {
@@ -112,7 +105,6 @@ QString kindString(DropKind kind, const char *suffix)
 	return QString::fromUtf8(obs_module_text(key.toUtf8().constData()));
 }
 
-/* Olcum degerini turune gore bicimler: yuzde, GB ya da saniye. */
 QString formatValue(DropKind kind, double value)
 {
 	switch (kind) {
@@ -125,23 +117,26 @@ QString formatValue(DropKind kind, double value)
 	case DropKind::None:
 		return QString();
 	default:
-		/* Yuzde isaretinin yeri dile gore degisiyor: tr "%42.00", en "42.00%". */
+
 		return QString::fromUtf8(obs_module_text("Format.Percent")).arg(value, 0, 'f', 2);
 	}
 }
 
-} // namespace
+}
 
 QString DropStatus::title() const
 {
 	const QString name = kindString(kind, "Title");
 	const QString measured = formatValue(kind, value);
-	return measured.isEmpty() ? name : QString("%1 %2").arg(name, measured);
+	const QString full = measured.isEmpty() ? name : QString("%1 %2").arg(name, measured);
+	if (!isTest)
+		return full;
+	return QString::fromUtf8(obs_module_text("Alert.TestPrefix")).arg(full);
 }
 
 QString DropStatus::cause() const
 {
-	/* Takilma suresi cumlenin icinde geciyor, o yuzden %1 ile yerlestiriliyor. */
+
 	if (kind == DropKind::Stall)
 		return kindString(kind, "Cause").arg(value, 0, 'f', 1);
 	return kindString(kind, "Cause");
@@ -149,7 +144,7 @@ QString DropStatus::cause() const
 
 QString DropStatus::hint() const
 {
-	/* Kodlama hatasinda OBS'in kendi mesaji ipucundan daha degerli: onu goster. */
+
 	if (kind == DropKind::OutputError && !detail.isEmpty())
 		return detail;
 	return kindString(kind, "Hint");
@@ -184,7 +179,7 @@ void DropMonitor::start()
 	m_overCount = 0;
 	m_holdUntilNs = 0;
 	m_lastPollNs = 0;
-	m_lastError.clear();
+	m_lastError = readOutputError();
 	m_timer.start();
 }
 
@@ -210,7 +205,6 @@ DropMonitor::Sample DropMonitor::takeSample()
 		s.encoded = video_output_get_total_frames(video);
 	}
 
-	/* Bu iki cagri yeni bir referans dondurur; release edilmezse cikti sizar. */
 	if (obs_output_t *out = obs_frontend_get_streaming_output()) {
 		s.netDropped = obs_output_get_frames_dropped(out);
 		s.netTotal = obs_output_get_total_frames(out);
@@ -232,7 +226,7 @@ bool DropMonitor::detectCounterReset(const Sample &now) const
 		return false;
 
 	const Sample &prev = m_samples.back();
-	/* Sayaclar monotondur; kuculduyse cikti yeniden baslamistir. */
+
 	return now.netTotal < prev.netTotal || now.netDropped < prev.netDropped || now.recTotal < prev.recTotal ||
 	       now.recDropped < prev.recDropped || now.rendered < prev.rendered || now.lagged < prev.lagged ||
 	       now.encoded < prev.encoded || now.skipped < prev.skipped;
@@ -247,14 +241,11 @@ const DropMonitor::Sample *DropMonitor::windowStart() const
 
 void DropMonitor::poll()
 {
-	/* Zamanlayici OBS'in ana is parcacigindan atiyor: arayuz donarsa bu tik de
-	 * gecikir. Gecikme miktari dogrudan "OBS takildi" olcumumuz. */
+
 	const uint64_t nowNs = os_gettime_ns();
 	const uint64_t lateMs = m_lastPollNs ? (nowNs - m_lastPollNs) / 1000000ull : 0;
 	m_lastPollNs = nowNs;
 
-	/* Test alarmi surerken olcum yapma. Yoksa asagidaki "yayin/kayit yokken
-	 * uyarma" dali test alarmini gercek alarm sanip ilk tikta sondurur. */
 	if (m_testActive)
 		return;
 
@@ -270,8 +261,6 @@ void DropMonitor::poll()
 		return;
 	}
 
-	/* Olaylar esik olcumunden once ve onun onunde: kodlama hatasi ya da kopmus
-	 * bir yayin, yuzde kac kare dustugunden cok daha onemli. */
 	if (checkEvents(nowNs, lateMs))
 		return;
 
@@ -284,7 +273,6 @@ void DropMonitor::poll()
 
 	m_samples.push_back(now);
 
-	/* Pencereden tasan ornekleri at, ama en az iki ornek kalsin. */
 	while (m_samples.size() > 2 && now.timeNs - m_samples.front().timeNs > m_windowNs)
 		m_samples.pop_front();
 
@@ -296,7 +284,7 @@ void DropMonitor::evaluate(const Sample &now)
 	const Settings &s = settings();
 
 	DropKind worstKind = DropKind::None;
-	double worstSeverity = 0.0; /* esige gore kac kat asildi */
+	double worstSeverity = 0.0;
 	double worstValue = 0.0;
 
 	auto consider = [&](DropKind kind, double value, double threshold) {
@@ -331,8 +319,6 @@ void DropMonitor::evaluate(const Sample &now)
 		}
 	}
 
-	/* Disk bos alani oran degil mutlak bir esik: kalan alan esigin ALTINA
-	 * dusunce alarm verir, dolayisiyla consider() yerine ayri ele alinir. */
 	if (s.monitorDisk) {
 		const QString dir = recordingDirectory();
 		if (!dir.isEmpty()) {
@@ -358,7 +344,7 @@ void DropMonitor::evaluate(const Sample &now)
 		if (!m_status.active && m_overCount >= s.triggerSamples) {
 			setAlarm(true, worstKind, worstValue);
 		} else if (m_status.active) {
-			/* Alarm surerken sebep degisebilir (or. encoder'dan aga gecis). */
+
 			m_status.kind = worstKind;
 			m_status.value = worstValue;
 			emit alarmUpdated(m_status);
@@ -373,16 +359,11 @@ void DropMonitor::evaluate(const Sample &now)
 	}
 }
 
-/* Yayin ve kayit ciktilarindan hata metnini / yeniden baglanma durumunu okur. */
-bool DropMonitor::checkEvents(uint64_t nowNs, uint64_t lateMs)
+QString DropMonitor::readOutputError()
 {
-	const Settings &s = settings();
-
 	QString error;
-	bool reconnecting = false;
 
 	if (obs_output_t *out = obs_frontend_get_streaming_output()) {
-		reconnecting = obs_output_reconnecting(out);
 		if (const char *e = obs_output_get_last_error(out))
 			error = QString::fromUtf8(e);
 		obs_output_release(out);
@@ -395,9 +376,23 @@ bool DropMonitor::checkEvents(uint64_t nowNs, uint64_t lateMs)
 		}
 	}
 
+	return error;
+}
+
+bool DropMonitor::checkEvents(uint64_t nowNs, uint64_t lateMs)
+{
+	const Settings &s = settings();
+
+	const QString error = readOutputError();
+	bool reconnecting = false;
+
+	if (obs_output_t *out = obs_frontend_get_streaming_output()) {
+		reconnecting = obs_output_reconnecting(out);
+		obs_output_release(out);
+	}
+
 	const uint64_t holdNs = (uint64_t)s.eventHoldSeconds * kNsPerSecond;
 
-	/* Hata metni ayni kaldigi surece tekrar alarm calmiyoruz; yalnizca degisince. */
 	if (s.monitorOutputError && !error.isEmpty() && error != m_lastError) {
 		m_lastError = error;
 		m_holdUntilNs = nowNs + holdNs;
@@ -411,13 +406,12 @@ bool DropMonitor::checkEvents(uint64_t nowNs, uint64_t lateMs)
 		return true;
 	}
 
-	if (s.monitorStall && lateMs >= (uint64_t)s.stallMs) {
+	if (s.monitorStall && lateMs >= (uint64_t)s.stallMs && lateMs < kSuspendLatenessMs) {
 		m_holdUntilNs = nowNs + holdNs;
 		setAlarm(true, DropKind::Stall, (double)lateMs / 1000.0);
 		return true;
 	}
 
-	/* Olay gecti ama tutma suresi dolmadi: ekranda kalsin, esik olcumu araya girmesin. */
 	if (isEventKind(m_status.kind) && m_status.active) {
 		if (nowNs < m_holdUntilNs)
 			return true;
@@ -437,6 +431,7 @@ void DropMonitor::setAlarm(bool on, DropKind kind, double value, const QString &
 	m_status.kind = kind;
 	m_status.value = value;
 	m_status.detail = detail;
+	m_status.isTest = false;
 
 	if (on) {
 		obs_log(LOG_WARNING, "drop alarm ON (%s)", m_status.text().toUtf8().constData());
@@ -454,6 +449,7 @@ void DropMonitor::fireTestAlarm()
 	m_status.kind = DropKind::Network;
 	m_status.value = 42.0;
 	m_status.detail.clear();
+	m_status.isTest = true;
 	obs_log(LOG_INFO, "test alarm ON");
 	emit alarmStarted(m_status);
 }
@@ -465,6 +461,7 @@ void DropMonitor::clearTestAlarm()
 	m_status.kind = DropKind::None;
 	m_status.value = 0.0;
 	m_status.detail.clear();
+	m_status.isTest = false;
 	m_overCount = 0;
 	m_samples.clear();
 	obs_log(LOG_INFO, "test alarm OFF");

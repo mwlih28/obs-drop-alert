@@ -22,10 +22,6 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QString>
 #include <QTimer>
 
-/*
- * Görsel olmayan uyarılar: uyarı sesi ve Windows görev çubuğu flaşı.
- * OBS başka bir pencerenin arkasındayken tek fark edilebilir sinyal bunlardır.
- */
 class Alerter : public QObject {
 	Q_OBJECT
 
@@ -37,7 +33,6 @@ public:
 	void stopAlarm();
 	void applySettings();
 
-	/* Ayarlar diyaloğundaki ses önizlemesi için. */
 	void previewSound();
 
 private slots:
@@ -47,7 +42,6 @@ private:
 	void playSound();
 	void setTaskbarFlash(bool on);
 
-	/* Çalınacak dosya: ayarlardaki yol, boşsa eklentiyle gelen data/alert.wav. */
 	QString resolveSoundPath() const;
 
 	QTimer m_repeatTimer;

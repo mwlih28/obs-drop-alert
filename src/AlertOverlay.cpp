@@ -31,15 +31,13 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 namespace {
 
-/* Nabız animasyonunun kare aralığı (~30 fps). */
 constexpr int kPulseIntervalMs = 33;
 
-/* Ana pencere taşınırken olay gelmese bile geometriyi tazeleyen güvenlik ağı. */
 constexpr int kSyncIntervalMs = 250;
 
 constexpr double kTwoPi = 6.283185307179586;
 
-} // namespace
+}
 
 AlertOverlay::AlertOverlay(QWidget *mainWindow)
 	: QWidget(mainWindow, Qt::Tool | Qt::FramelessWindowHint | Qt::WindowTransparentForInput |
@@ -139,7 +137,6 @@ void AlertOverlay::syncGeometry()
 	if (!m_mainWindow)
 		return;
 
-	/* Ana pencerenin istemci alanı, ekran koordinatlarında. */
 	const QRect target(m_mainWindow->mapToGlobal(QPoint(0, 0)), m_mainWindow->size());
 	if (geometry() != target)
 		setGeometry(target);
@@ -183,7 +180,6 @@ void AlertOverlay::paintEvent(QPaintEvent *)
 
 	QPainter p(this);
 
-	/* Nabız açıkken 0.35–1.0 arasında salınır, kapalıyken sabit tam yoğunluk. */
 	const double swing = s.pulse ? (0.35 + 0.65 * (0.5 + 0.5 * std::sin(m_phase))) : 1.0;
 
 	if (s.visualMode == VisualMode::Tint) {
@@ -206,9 +202,6 @@ void AlertOverlay::paintEvent(QPaintEvent *)
 	if (m_title.isEmpty())
 		return;
 
-	/* Tek satırlık bir rozet "bir şey kırmızı" demekten öteye gitmiyordu. Kart üç
-	 * satır taşıyor: ne olduğu, neden olduğu, ne yapılacağı. Yayıncı ekrana bir
-	 * saniye bakıp sorunu teşhis edebilsin diye. */
 	QFont titleFont = p.font();
 	titleFont.setBold(true);
 	titleFont.setPointSizeF(std::max(13.0, (double)s.borderWidth * 1.05));

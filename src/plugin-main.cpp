@@ -38,15 +38,8 @@ OBS_MODULE_USE_DEFAULT_LOCALE(PLUGIN_NAME, "en-US")
 
 namespace {
 
-/* OBS'in Yardım menüsünün .ui dosyasındaki nesne adı; kendi menümüzü onun
- * soluna eklemek için kullanılıyor, böylece Yardım her zaman en sağda kalır. */
 constexpr const char *kHelpMenuObjectName = "menuBasic_MainMenu_Help";
 
-/*
- * Parçaları birbirine bağlayan sahip nesne. Kasten QObject değil: tüm bağlantılar
- * lambda + bağlam nesnesi ile kuruluyor, böylece burada Q_OBJECT/moc gerekmeden
- * bağlantılar üyeler yok edildiğinde otomatik kopuyor.
- */
 struct DropAlert {
 	QMainWindow *mainWindow = nullptr;
 	DropMonitor *monitor = nullptr;
@@ -92,7 +85,6 @@ struct DropAlert {
 		if (overlay)
 			overlay->stopAlarm();
 
-		/* Menüyü menü çubuğundan sök, yoksa OBS kapanırken sahipsiz kalır. */
 		if (menu) {
 			if (QMenuBar *bar = mainWindow ? mainWindow->menuBar() : nullptr)
 				bar->removeAction(menu->menuAction());
@@ -105,9 +97,6 @@ struct DropAlert {
 		delete alerter;
 	}
 
-	/* OBS'in üst menü çubuğuna kendi menümüzü ekler. obs_frontend API'si yalnızca
-	 * Araçlar menüsüne ekleme sunduğu için menü çubuğuna doğrudan Qt üzerinden
-	 * giriliyor; ana pencereyi zaten obs_frontend_get_main_window()'dan alıyoruz. */
 	void buildMenu()
 	{
 		QMenuBar *bar = mainWindow ? mainWindow->menuBar() : nullptr;
@@ -146,8 +135,6 @@ struct DropAlert {
 		alerter->applySettings();
 	}
 
-	/* Test alarmının tek doğruluk kaynağı: menüdeki geçmeli öğe ile ayar
-	 * penceresindeki düğme buradan senkron tutuluyor. */
 	void setTestAlarm(bool on)
 	{
 		if (testActive == on)
@@ -167,8 +154,6 @@ struct DropAlert {
 			monitor->clearTestAlarm();
 	}
 
-	/* Yayın/kayıt yeniden başladığında sayaçlar sıfırlanır; kayan pencereyi de
-	 * boşaltmazsak ilk saniyelerde sahte bir sıçrama görürüz. */
 	void resetWindow()
 	{
 		if (testActive)
@@ -241,7 +226,7 @@ void onFrontendEvent(enum obs_frontend_event event, void *)
 	}
 }
 
-} // namespace
+}
 
 bool obs_module_load(void)
 {

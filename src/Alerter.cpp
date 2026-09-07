@@ -32,7 +32,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #define NOMINMAX
 #endif
 #include <windows.h>
-/* WIN32_LEAN_AND_MEAN mmsystem.h'yi dışarıda bıraktığı için ayrıca alınıyor. */
+
 #include <mmsystem.h>
 
 Alerter::Alerter(QObject *parent) : QObject(parent)
@@ -78,7 +78,6 @@ void Alerter::playSound()
 		obs_log(LOG_WARNING, "PlaySound failed for '%s'", path.toUtf8().constData());
 	}
 
-	/* Ses dosyası yoksa ya da çalınamadıysa en azından sistem sesi çıkar. */
 	MessageBeep(MB_ICONHAND);
 }
 
@@ -91,8 +90,7 @@ void Alerter::setTaskbarFlash(bool on)
 	FLASHWINFO info = {};
 	info.cbSize = sizeof(info);
 	info.hwnd = hwnd;
-	/* FLASHW_TIMERNOFG: OBS öne gelene kadar yanıp sönsün, geldiğinde kendiliğinden dursun.
-	 * OBS zaten öndeyse Windows hiç flaşlamaz, ki istenen davranış budur. */
+
 	info.dwFlags = on ? (FLASHW_TRAY | FLASHW_TIMERNOFG) : FLASHW_STOP;
 	info.uCount = 0;
 	info.dwTimeout = 0;
