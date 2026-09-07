@@ -110,6 +110,22 @@ void SettingsDialog::buildUi()
 	monitorGrid->addWidget(new QLabel(T("Label.DiskThreshold")), row, 1);
 	monitorGrid->addWidget(m_diskGb, row++, 2);
 
+	/* Olay tabanli tespitler: bunlarin esigi yok, ya olur ya olmaz. */
+	m_outputError = new QCheckBox(T("Monitor.OutputError"));
+	monitorGrid->addWidget(m_outputError, row++, 0, 1, 3);
+
+	m_streamDrop = new QCheckBox(T("Monitor.StreamDrop"));
+	monitorGrid->addWidget(m_streamDrop, row++, 0, 1, 3);
+
+	m_stall = new QCheckBox(T("Monitor.Stall"));
+	m_stallMs = new QSpinBox();
+	m_stallMs->setRange(300, 30000);
+	m_stallMs->setSingleStep(100);
+	m_stallMs->setSuffix(" ms");
+	monitorGrid->addWidget(m_stall, row, 0);
+	monitorGrid->addWidget(new QLabel(T("Tuning.StallMs")), row, 1);
+	monitorGrid->addWidget(m_stallMs, row++, 2);
+
 	monitorGrid->setColumnStretch(0, 1);
 	root->addWidget(monitorGroup);
 
@@ -203,6 +219,11 @@ void SettingsDialog::buildUi()
 	m_clearSeconds->setToolTip(T("Tuning.Clear.Tip"));
 	tuningForm->addRow(T("Tuning.Clear"), m_clearSeconds);
 
+	m_eventHold = new QSpinBox();
+	m_eventHold->setRange(1, 120);
+	m_eventHold->setSuffix(" s");
+	tuningForm->addRow(T("Tuning.EventHold"), m_eventHold);
+
 	m_onlyWhenActive = new QCheckBox(T("Tuning.OnlyWhenActive"));
 	tuningForm->addRow(m_onlyWhenActive);
 
@@ -246,6 +267,10 @@ void SettingsDialog::loadFromSettings()
 	m_render->setChecked(s.monitorRender);
 	m_encoder->setChecked(s.monitorEncoder);
 	m_disk->setChecked(s.monitorDisk);
+	m_outputError->setChecked(s.monitorOutputError);
+	m_streamDrop->setChecked(s.monitorStreamDrop);
+	m_stall->setChecked(s.monitorStall);
+	m_stallMs->setValue(s.stallMs);
 	m_networkPct->setValue(s.thresholdNetworkPct);
 	m_renderPct->setValue(s.thresholdRenderPct);
 	m_encoderPct->setValue(s.thresholdEncoderPct);
@@ -267,6 +292,7 @@ void SettingsDialog::loadFromSettings()
 	m_windowSeconds->setValue(s.windowSeconds);
 	m_triggerSamples->setValue(s.triggerSamples);
 	m_clearSeconds->setValue(s.clearSeconds);
+	m_eventHold->setValue(s.eventHoldSeconds);
 	m_onlyWhenActive->setChecked(s.onlyWhenActive);
 }
 
@@ -278,6 +304,10 @@ void SettingsDialog::storeToSettings()
 	s.monitorRender = m_render->isChecked();
 	s.monitorEncoder = m_encoder->isChecked();
 	s.monitorDisk = m_disk->isChecked();
+	s.monitorOutputError = m_outputError->isChecked();
+	s.monitorStreamDrop = m_streamDrop->isChecked();
+	s.monitorStall = m_stall->isChecked();
+	s.stallMs = m_stallMs->value();
 	s.thresholdNetworkPct = m_networkPct->value();
 	s.thresholdRenderPct = m_renderPct->value();
 	s.thresholdEncoderPct = m_encoderPct->value();
@@ -299,6 +329,7 @@ void SettingsDialog::storeToSettings()
 	s.windowSeconds = m_windowSeconds->value();
 	s.triggerSamples = m_triggerSamples->value();
 	s.clearSeconds = m_clearSeconds->value();
+	s.eventHoldSeconds = m_eventHold->value();
 	s.onlyWhenActive = m_onlyWhenActive->isChecked();
 }
 

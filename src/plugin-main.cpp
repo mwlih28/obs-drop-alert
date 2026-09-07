@@ -66,13 +66,13 @@ struct DropAlert {
 		monitor = new DropMonitor(window);
 
 		QObject::connect(monitor, &DropMonitor::alarmStarted, overlay, [this](const DropStatus &status) {
-			overlay->setStatusText(status.text());
+			overlay->setStatusText(status.title(), status.cause(), status.hint());
 			overlay->startAlarm();
 			alerter->startAlarm();
 		});
 
 		QObject::connect(monitor, &DropMonitor::alarmUpdated, overlay,
-				 [this](const DropStatus &status) { overlay->setStatusText(status.text()); });
+				 [this](const DropStatus &status) { overlay->setStatusText(status.title(), status.cause(), status.hint()); });
 
 		QObject::connect(monitor, &DropMonitor::alarmCleared, overlay, [this]() {
 			overlay->stopAlarm();

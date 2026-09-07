@@ -72,6 +72,11 @@ private:
 	QCheckBox *m_render = nullptr;
 	QCheckBox *m_encoder = nullptr;
 	QCheckBox *m_disk = nullptr;
+	QCheckBox *m_outputError = nullptr;
+	QCheckBox *m_streamDrop = nullptr;
+	QCheckBox *m_stall = nullptr;
+	QSpinBox *m_stallMs = nullptr;
+	QSpinBox *m_eventHold = nullptr;
 	QDoubleSpinBox *m_networkPct = nullptr;
 	QDoubleSpinBox *m_renderPct = nullptr;
 	QDoubleSpinBox *m_encoderPct = nullptr;

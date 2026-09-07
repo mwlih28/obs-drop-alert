@@ -44,7 +44,8 @@ public:
 	void stopAlarm();
 
 	/* Kenarlıkta gösterilecek sebep metni, örn. "Ağ drop'u %4.21". */
-	void setStatusText(const QString &text);
+	/* Uyarı kartının üç satırı: ne oldu / neden / ne yapmalı. */
+	void setStatusText(const QString &title, const QString &cause, const QString &hint);
 
 	void applySettings();
 
@@ -62,7 +63,9 @@ private:
 	QWidget *m_mainWindow = nullptr;
 	QTimer m_pulseTimer;
 	QTimer m_syncTimer;
-	QString m_statusText;
+	QString m_title;
+	QString m_cause;
+	QString m_hint;
 	double m_phase = 0.0;
 	bool m_alarmActive = false;
 };

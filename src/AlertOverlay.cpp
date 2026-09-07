@@ -92,13 +92,14 @@ void AlertOverlay::stopAlarm()
 	hide();
 }
 
-void AlertOverlay::setStatusText(const QString &text)
+void AlertOverlay::setStatusText(const QString &title, const QString &cause, const QString &hint)
 {
-	if (m_statusText == text)
+	if (m_title == title && m_cause == cause && m_hint == hint)
 		return;
-	m_statusText = text;
-	if (isVisible())
-		update();
+	m_title = title;
+	m_cause = cause;
+	m_hint = hint;
+	update();
 }
 
 void AlertOverlay::applySettings()
@@ -202,32 +203,74 @@ void AlertOverlay::paintEvent(QPaintEvent *)
 	p.drawRect(0, w, w, height() - 2 * w);
 	p.drawRect(width() - w, w, w, height() - 2 * w);
 
-	if (m_statusText.isEmpty())
+	if (m_title.isEmpty())
 		return;
 
-	/* Sebep metnini üst kenarın ortasında bir kırmızı rozette göster: kullanıcı
-	 * sadece "bir şey kırmızı" değil, hangi sorunun olduğunu da görsün. */
-	QFont font = p.font();
-	font.setBold(true);
-	font.setPointSizeF(std::max(11.0, (double)s.borderWidth * 0.95));
-	p.setFont(font);
+	/* Tek satırlık bir rozet "bir şey kırmızı" demekten öteye gitmiyordu. Kart üç
+	 * satır taşıyor: ne olduğu, neden olduğu, ne yapılacağı. Yayıncı ekrana bir
+	 * saniye bakıp sorunu teşhis edebilsin diye. */
+	QFont titleFont = p.font();
+	titleFont.setBold(true);
+	titleFont.setPointSizeF(std::max(13.0, (double)s.borderWidth * 1.05));
 
-	const QFontMetrics fm(font);
-	const int padX = 18;
-	const int padY = 8;
-	const QSize textSize = fm.size(Qt::TextSingleLine, m_statusText);
-	const int badgeW = std::min(width() - 2 * w, textSize.width() + 2 * padX);
-	const int badgeH = textSize.height() + 2 * padY;
-	const QRect badge((width() - badgeW) / 2, w, badgeW, badgeH);
+	QFont bodyFont = p.font();
+	bodyFont.setBold(false);
+	bodyFont.setPointSizeF(std::max(9.5, (double)s.borderWidth * 0.70));
 
-	QColor badgeColor(190, 0, 0);
-	badgeColor.setAlphaF(std::min(1.0, 0.70 + 0.30 * swing));
+	const QFontMetrics titleFm(titleFont);
+	const QFontMetrics bodyFm(bodyFont);
+
+	const int padX = 22;
+	const int padY = 14;
+	const int gap = 6;
+	const int maxCardW = std::min(width() - 2 * w - 40, 760);
+	if (maxCardW < 120)
+		return;
+	const int textW = maxCardW - 2 * padX;
+
+	const int flags = Qt::TextWordWrap | Qt::AlignLeft;
+	const QRect bound(0, 0, textW, height() / 2);
+	const QRect titleR = titleFm.boundingRect(bound, flags, m_title);
+	const QRect causeR = m_cause.isEmpty() ? QRect() : bodyFm.boundingRect(bound, flags, m_cause);
+	const QRect hintR = m_hint.isEmpty() ? QRect() : bodyFm.boundingRect(bound, flags, m_hint);
+
+	int cardH = 2 * padY + titleR.height();
+	if (!m_cause.isEmpty())
+		cardH += gap + causeR.height();
+	if (!m_hint.isEmpty())
+		cardH += gap + hintR.height();
+
+	const int contentW = std::max(titleR.width(), std::max(causeR.width(), hintR.width()));
+	const int cardW = std::min(maxCardW, contentW + 2 * padX);
+	const QRect card((width() - cardW) / 2, w + 10, cardW, cardH);
+
+	QColor cardColor(150, 0, 0);
+	cardColor.setAlphaF(std::min(1.0, 0.80 + 0.20 * swing));
 
 	QPainterPath path;
-	path.addRoundedRect(badge, badgeH / 4.0, badgeH / 4.0);
+	path.addRoundedRect(card, 10.0, 10.0);
 	p.setRenderHint(QPainter::Antialiasing, true);
-	p.fillPath(path, badgeColor);
+	p.fillPath(path, cardColor);
 
+	int y = card.top() + padY;
+	const int x = card.left() + padX;
+	const int lineW = card.width() - 2 * padX;
+
+	p.setFont(titleFont);
 	p.setPen(QColor(255, 255, 255));
-	p.drawText(badge, Qt::AlignCenter, fm.elidedText(m_statusText, Qt::ElideRight, badgeW - 2 * padX));
+	p.drawText(QRect(x, y, lineW, titleR.height()), flags, m_title);
+	y += titleR.height();
+
+	p.setFont(bodyFont);
+	if (!m_cause.isEmpty()) {
+		y += gap;
+		p.setPen(QColor(255, 226, 226));
+		p.drawText(QRect(x, y, lineW, causeR.height()), flags, m_cause);
+		y += causeR.height();
+	}
+	if (!m_hint.isEmpty()) {
+		y += gap;
+		p.setPen(QColor(255, 196, 196));
+		p.drawText(QRect(x, y, lineW, hintR.height()), flags, m_hint);
+	}
 }

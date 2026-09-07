@@ -76,6 +76,11 @@ void Settings::load()
 	obs_data_set_default_bool(data, "monitor_render", monitorRender);
 	obs_data_set_default_bool(data, "monitor_encoder", monitorEncoder);
 	obs_data_set_default_bool(data, "monitor_disk", monitorDisk);
+	obs_data_set_default_bool(data, "monitor_output_error", monitorOutputError);
+	obs_data_set_default_bool(data, "monitor_stream_drop", monitorStreamDrop);
+	obs_data_set_default_bool(data, "monitor_stall", monitorStall);
+	obs_data_set_default_int(data, "stall_ms", stallMs);
+	obs_data_set_default_int(data, "event_hold_seconds", eventHoldSeconds);
 	obs_data_set_default_double(data, "threshold_network_pct", thresholdNetworkPct);
 	obs_data_set_default_double(data, "threshold_render_pct", thresholdRenderPct);
 	obs_data_set_default_double(data, "threshold_encoder_pct", thresholdEncoderPct);
@@ -100,6 +105,9 @@ void Settings::load()
 	monitorRender = obs_data_get_bool(data, "monitor_render");
 	monitorEncoder = obs_data_get_bool(data, "monitor_encoder");
 	monitorDisk = obs_data_get_bool(data, "monitor_disk");
+	monitorOutputError = obs_data_get_bool(data, "monitor_output_error");
+	monitorStreamDrop = obs_data_get_bool(data, "monitor_stream_drop");
+	monitorStall = obs_data_get_bool(data, "monitor_stall");
 
 	thresholdNetworkPct = clampDouble(obs_data_get_double(data, "threshold_network_pct"), 0.1, 100.0);
 	thresholdRenderPct = clampDouble(obs_data_get_double(data, "threshold_render_pct"), 0.1, 100.0);
@@ -109,6 +117,8 @@ void Settings::load()
 
 	pollMs = clampInt((int)obs_data_get_int(data, "poll_ms"), 50, 5000);
 	windowSeconds = clampInt((int)obs_data_get_int(data, "window_seconds"), 1, 120);
+	stallMs = clampInt((int)obs_data_get_int(data, "stall_ms"), 300, 30000);
+	eventHoldSeconds = clampInt((int)obs_data_get_int(data, "event_hold_seconds"), 1, 120);
 	triggerSamples = clampInt((int)obs_data_get_int(data, "trigger_samples"), 1, 100);
 	clearSeconds = clampInt((int)obs_data_get_int(data, "clear_seconds"), 1, 120);
 
@@ -141,6 +151,11 @@ void Settings::save() const
 	obs_data_set_bool(data, "monitor_render", monitorRender);
 	obs_data_set_bool(data, "monitor_encoder", monitorEncoder);
 	obs_data_set_bool(data, "monitor_disk", monitorDisk);
+	obs_data_set_bool(data, "monitor_output_error", monitorOutputError);
+	obs_data_set_bool(data, "monitor_stream_drop", monitorStreamDrop);
+	obs_data_set_bool(data, "monitor_stall", monitorStall);
+	obs_data_set_int(data, "stall_ms", stallMs);
+	obs_data_set_int(data, "event_hold_seconds", eventHoldSeconds);
 	obs_data_set_double(data, "threshold_network_pct", thresholdNetworkPct);
 	obs_data_set_double(data, "threshold_render_pct", thresholdRenderPct);
 	obs_data_set_double(data, "threshold_encoder_pct", thresholdEncoderPct);

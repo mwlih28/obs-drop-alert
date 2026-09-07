@@ -38,6 +38,11 @@ struct Settings {
 	bool monitorEncoder = true;
 	bool monitorDisk = true;
 
+	/* Olay tabanli tespitler: bunlar yuzde esigi degil, tek seferlik olaylardir. */
+	bool monitorOutputError = true; /* OBS cikti/kodlayici hatasi verdi */
+	bool monitorStreamDrop = true;  /* sunucu baglantisi koptu, yeniden baglaniyor */
+	bool monitorStall = true;       /* OBS yanit vermiyor ("bekleme modu") */
+
 	double thresholdNetworkPct = 2.0;
 	double thresholdRenderPct = 5.0;
 	double thresholdEncoderPct = 5.0;
@@ -49,6 +54,11 @@ struct Settings {
 	int windowSeconds = 5;
 	int triggerSamples = 2;
 	int clearSeconds = 3;
+
+	/* Takilma esigi: poll zamanlayicisi bu kadar ms geciktiyse OBS donmus sayilir. */
+	int stallMs = 1500;
+	/* Olay alarmlari (hata/kopma/takilma) ekranda en az bu kadar saniye kalir. */
+	int eventHoldSeconds = 8;
 
 	/* --- görsel uyarı --- */
 	VisualMode visualMode = VisualMode::Border;

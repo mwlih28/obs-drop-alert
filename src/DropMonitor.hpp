@@ -32,14 +32,32 @@ enum class DropKind {
 	Encoder, /* encoder yetişemediği için atlanan kareler */
 	Record,  /* kayıt çıktısının düşürdüğü kareler */
 	Disk,    /* diskte boş alan azaldı */
+
+	/* Aşağıdakiler yüzde eşiği değil, tek seferlik olaylardır: ölçüm penceresi
+	 * yerine `eventHoldSeconds` boyunca ekranda tutulurlar. */
+	OutputError,    /* OBS çıktı/kodlayıcı hatası verdi (kodlama hatası) */
+	StreamDropped,  /* sunucu bağlantısı koptu, OBS yeniden bağlanıyor */
+	Stall,          /* OBS yanıt vermedi ("bekleme modu" gibi takılma) */
 };
+
+/* Olay türleri eşik tabanlı olanlardan farklı yaşam döngüsüne sahip. */
+bool isEventKind(DropKind kind);
 
 struct DropStatus {
 	bool active = false;
 	DropKind kind = DropKind::None;
-	double value = 0.0; /* yüzde, ya da Disk için kalan GB */
+	double value = 0.0; /* yüzde, Disk için kalan GB, Stall için saniye */
 
-	/* Kullanıcıya gösterilecek hazır metin, örn. "Ağ drop'u: %4.2" */
+	/* OBS'in kendi verdiği ham hata metni (yalnızca OutputError'da dolu). */
+	QString detail;
+
+	/* Uyarı üç parçaya ayrılıyor: kullanıcı ekrana bakınca yalnızca "bir şey
+	 * kırmızı" değil, ne olduğunu, neden olduğunu ve ne yapacağını görsün. */
+	QString title() const; /* NE oldu, örn. "Kodlama hatası" */
+	QString cause() const; /* NEDEN, tek cümle */
+	QString hint() const;  /* NE YAPMALI, tek cümle */
+
+	/* Log ve dar yerler için tek satırlık özet, örn. "Ağ drop'u %4.2" */
 	QString text() const;
 };
 
@@ -99,7 +117,11 @@ private:
 	bool detectCounterReset(const Sample &now) const;
 
 	void evaluate(const Sample &now);
-	void setAlarm(bool on, DropKind kind, double value);
+	void setAlarm(bool on, DropKind kind, double value, const QString &detail = QString());
+
+	/* Eşik ölçümünden önce çalışan olay tespiti (hata / kopma / takılma).
+	 * Bir olay alarmı sürüyorsa true döner ve eşik değerlendirmesi atlanır. */
+	bool checkEvents(uint64_t nowNs, uint64_t lateMs);
 
 	QTimer m_timer;
 	std::deque<Sample> m_samples;
@@ -109,6 +131,14 @@ private:
 	bool m_testActive = false;
 	int m_overCount = 0;
 	uint64_t m_lastOverNs = 0;
+
+	/* Takılma tespiti: poll'un bir önceki ateşlenme anı. Zamanlayıcı OBS'in ana
+	 * iş parçacığında olduğu için arayüz donduğunda geç ateşlenir. */
+	uint64_t m_lastPollNs = 0;
+	/* Olay alarmının en erken sönebileceği an. */
+	uint64_t m_holdUntilNs = 0;
+	/* Aynı hata metni için tekrar tekrar alarm çalmamak üzere son görülen hata. */
+	QString m_lastError;
 
 	DropStatus m_status;
 
