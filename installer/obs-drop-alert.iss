@@ -47,6 +47,9 @@ OutputBaseFilename={#MyAppModule}-{#MyAppVersion}-windows-x64-installer
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
+; Sistem dili Turkce ya da Ingilizce ise dil sorma ekranini hic gosterme
+; (Inno varsayilani "yes", yani her zaman sorar)
+ShowLanguageDialog=auto
 
 ; Yönetici hakkı istemiyoruz: ProgramData altına standart kullanıcı da yazabilir.
 PrivilegesRequired=lowest
