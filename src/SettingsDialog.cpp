@@ -65,7 +65,7 @@ QDoubleSpinBox *makePercentBox(double min = 0.1, double max = 100.0)
 	return box;
 }
 
-}
+} // namespace
 
 SettingsDialog::SettingsDialog(QWidget *parent) : QDialog(parent)
 {
@@ -453,7 +453,8 @@ void SettingsDialog::onDiagTick()
 		uint32_t skipped = video_output_get_skipped_frames(video);
 		uint32_t totalEncoded = video_output_get_total_frames(video);
 		double skipPct = totalEncoded > 0 ? ((double)skipped / totalEncoded * 100.0) : 0.0;
-		m_diagSkipped->setText(QString("%1 / %2 (%3 %)").arg(skipped).arg(totalEncoded).arg(skipPct, 0, 'f', 2));
+		m_diagSkipped->setText(
+			QString("%1 / %2 (%3 %)").arg(skipped).arg(totalEncoded).arg(skipPct, 0, 'f', 2));
 	}
 
 	if (obs_output_t *out = obs_frontend_get_streaming_output()) {

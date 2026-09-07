@@ -36,11 +36,11 @@ constexpr int kPulseIntervalMs = 16;
 constexpr int kSyncIntervalMs = 1000;
 constexpr double kTwoPi = 6.283185307179586;
 
-}
+} // namespace
 
 AlertOverlay::AlertOverlay(QWidget *mainWindow)
-	: QWidget(mainWindow, Qt::Tool | Qt::FramelessWindowHint | Qt::WindowTransparentForInput |
-				      Qt::NoDropShadowWindowHint),
+	: QWidget(mainWindow,
+		  Qt::Tool | Qt::FramelessWindowHint | Qt::WindowTransparentForInput | Qt::NoDropShadowWindowHint),
 	  m_mainWindow(mainWindow)
 {
 	setAttribute(Qt::WA_TranslucentBackground);
@@ -314,7 +314,8 @@ void AlertOverlay::paintEvent(QPaintEvent *)
 	const int flags = Qt::TextWordWrap | Qt::AlignLeft;
 	const QRect bound(0, 0, textW, height() / 2);
 
-	const QString badgeText = isWarn ? QString::fromUtf8("⚠ PERFORMANS RİSKİ") : QString::fromUtf8("⚡ KRİTİK DROP");
+	const QString badgeText = isWarn ? QString::fromUtf8("⚠ PERFORMANS RİSKİ")
+					 : QString::fromUtf8("⚡ KRİTİK DROP");
 	const QRect badgeR = badgeFm.boundingRect(bound, flags, badgeText);
 	const QRect titleR = titleFm.boundingRect(bound, flags, m_title);
 	const QRect causeR = m_cause.isEmpty() ? QRect() : bodyFm.boundingRect(bound, flags, m_cause);
@@ -399,7 +400,8 @@ void AlertOverlay::paintEvent(QPaintEvent *)
 
 	// Canlı Sayaç (Frame Stats Pill)
 	if (m_totalFrames > 0) {
-		const QString statStr = QString::fromUtf8("Kare Kaybı: %1 / %2").arg(m_droppedFrames).arg(m_totalFrames);
+		const QString statStr =
+			QString::fromUtf8("Kare Kaybı: %1 / %2").arg(m_droppedFrames).arg(m_totalFrames);
 		const QFontMetrics statFm(statsFont);
 		const int statW = statFm.horizontalAdvance(statStr) + 12;
 		const QRect statBox(card.right() - padX - statW, y, statW, badgeBox.height());

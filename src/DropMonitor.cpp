@@ -77,7 +77,7 @@ QString recordingDirectory()
 	return dir;
 }
 
-}
+} // namespace
 
 bool isEventKind(DropKind kind)
 {
@@ -133,7 +133,7 @@ QString formatValue(DropKind kind, double value)
 	}
 }
 
-}
+} // namespace
 
 QString DropStatus::title() const
 {
@@ -505,10 +505,9 @@ bool DropMonitor::checkEvents(uint64_t nowNs, uint64_t lateMs)
 	const uint64_t holdNs = (uint64_t)s.eventHoldSeconds * kNsPerSecond;
 
 	if (s.monitorOutputError) {
-		const QString fresh = (!streamError.isEmpty() && streamError != prevStreamError)
-					      ? streamError
-					      : (!recordError.isEmpty() && recordError != prevRecordError) ? recordError
-											                  : QString();
+		const QString fresh = (!streamError.isEmpty() && streamError != prevStreamError)   ? streamError
+				      : (!recordError.isEmpty() && recordError != prevRecordError) ? recordError
+												   : QString();
 		if (!fresh.isEmpty()) {
 			m_holdUntilNs = nowNs + holdNs;
 			setAlarm(true, DropKind::OutputError, 0.0, AlertSeverity::Critical, fresh);

@@ -238,7 +238,7 @@ void onFrontendEvent(enum obs_frontend_event event, void *)
 	}
 }
 
-}
+} // namespace
 
 bool obs_module_load(void)
 {

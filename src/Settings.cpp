@@ -50,7 +50,7 @@ double clampDouble(double value, double lo, double hi)
 	return std::max(lo, std::min(hi, value));
 }
 
-}
+} // namespace
 
 Settings &settings()
 {

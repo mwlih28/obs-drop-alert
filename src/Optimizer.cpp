@@ -37,7 +37,7 @@ namespace {
 static bool s_multimediaTimerActive = false;
 static bool s_priorityBoostActive = false;
 
-}
+} // namespace
 
 void Optimizer::applyAutoOptimizations()
 {
@@ -112,13 +112,15 @@ OptimizationResult Optimizer::runManualOptimization()
 
 	QStringList details;
 	if (res.prioritySuccess) {
-		details << QString::fromUtf8("✔ OBS İşlem Önceliği Yüksek (HIGH) seviyeye çıkarıldı (Oyun altında FPS kaybı ve gecikmeler önlendi).");
+		details << QString::fromUtf8(
+			"✔ OBS İşlem Önceliği Yüksek (HIGH) seviyeye çıkarıldı (Oyun altında FPS kaybı ve gecikmeler önlendi).");
 	} else {
 		details << QString::fromUtf8("✖ OBS İşlem Önceliği artırılamadı (Yetki yetersiz).");
 	}
 
 	if (res.timerSuccess) {
-		details << QString::fromUtf8("✔ Windows 1ms Hassas Multimedya Zamanlayıcısı devrede (Zamanlama jitter'ı ve takılmalar engellendi).");
+		details << QString::fromUtf8(
+			"✔ Windows 1ms Hassas Multimedya Zamanlayıcısı devrede (Zamanlama jitter'ı ve takılmalar engellendi).");
 	} else {
 		details << QString::fromUtf8("✖ 1ms Zamanlayıcı etkinleştirilemedi.");
 	}

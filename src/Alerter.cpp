@@ -64,8 +64,7 @@ QString Alerter::resolveSoundPath(AlertSeverity severity) const
 		const QString custom = QString::fromStdString(s.soundPath);
 		if (QFile::exists(custom))
 			return custom;
-		obs_log(LOG_WARNING, "sound file not found: '%s', falling back to bundled sound",
-			s.soundPath.c_str());
+		obs_log(LOG_WARNING, "sound file not found: '%s', falling back to bundled sound", s.soundPath.c_str());
 	}
 
 	char *bundled = obs_module_file("alert.wav");

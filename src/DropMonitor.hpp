@@ -143,7 +143,6 @@ private:
 	DropStatus m_status;
 
 public:
-
 	void fireTestAlarm();
 	void clearTestAlarm();
 };
