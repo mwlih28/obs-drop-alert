@@ -25,6 +25,8 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <cstdint>
 #include <deque>
 
+#include <vector>
+
 enum class DropKind {
 	None,
 	Network,
@@ -38,12 +40,22 @@ enum class DropKind {
 	Stall,
 };
 
+enum class AlertSeverity {
+	None,
+	Warning,
+	Critical,
+};
+
 bool isEventKind(DropKind kind);
 
 struct DropStatus {
 	bool active = false;
 	DropKind kind = DropKind::None;
+	AlertSeverity severity = AlertSeverity::None;
 	double value = 0.0;
+	std::vector<double> history;
+	int64_t droppedFrames = 0;
+	int64_t totalFrames = 0;
 
 	QString detail;
 	bool isTest = false;
@@ -96,7 +108,8 @@ private:
 	bool detectCounterReset(const Sample &now) const;
 
 	void evaluate(const Sample &now);
-	void setAlarm(bool on, DropKind kind, double value, const QString &detail = QString());
+	void setAlarm(bool on, DropKind kind, double value, AlertSeverity severity = AlertSeverity::Critical,
+		      const QString &detail = QString());
 
 	bool checkEvents(uint64_t nowNs, uint64_t lateMs);
 	bool holdingEvent(uint64_t nowNs) const;
@@ -108,6 +121,7 @@ private:
 
 	bool m_testActive = false;
 	int m_overCount = 0;
+	int m_warnCount = 0;
 	uint64_t m_lastOverNs = 0;
 
 	uint64_t m_lastPollNs = 0;
@@ -115,8 +129,16 @@ private:
 
 	uint64_t m_holdUntilNs = 0;
 
+	uint64_t m_lastDiskCheckNs = 0;
+	double m_cachedFreeGb = 9999.0;
+	QString m_cachedRecDir;
+
 	QString m_lastStreamError;
 	QString m_lastRecordError;
+
+	std::vector<double> m_sparklineHistory;
+	int64_t m_currentDropped = 0;
+	int64_t m_currentTotal = 0;
 
 	DropStatus m_status;
 

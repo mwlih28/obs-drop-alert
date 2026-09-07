@@ -97,6 +97,16 @@ void Settings::load()
 	obs_data_set_default_int(data, "sound_repeat_seconds", soundRepeatSeconds);
 	obs_data_set_default_bool(data, "taskbar_flash", taskbarFlash);
 	obs_data_set_default_bool(data, "only_when_active", onlyWhenActive);
+	obs_data_set_default_bool(data, "auto_high_priority", autoHighPriority);
+	obs_data_set_default_bool(data, "auto_multimedia_timer", autoMultimediaTimer);
+	obs_data_set_default_bool(data, "enable_pre_warning", enablePreWarning);
+	obs_data_set_default_bool(data, "modern_glow", modernGlow);
+	obs_data_set_default_int(data, "theme", (int)theme);
+	obs_data_set_default_bool(data, "show_sparkline", showSparkline);
+	obs_data_set_default_bool(data, "warn_sound_enabled", warnSoundEnabled);
+	obs_data_set_default_string(data, "warn_sound_path", warnSoundPath.c_str());
+	obs_data_set_default_bool(data, "built_in_synth", builtInSynth);
+	obs_data_set_default_bool(data, "auto_pause_preview_on_render_lag", autoPausePreviewOnRenderLag);
 
 	monitorNetwork = obs_data_get_bool(data, "monitor_network");
 	monitorRender = obs_data_get_bool(data, "monitor_render");
@@ -120,6 +130,7 @@ void Settings::load()
 	clearSeconds = clampInt((int)obs_data_get_int(data, "clear_seconds"), 1, 120);
 
 	visualMode = (VisualMode)clampInt((int)obs_data_get_int(data, "visual_mode"), 0, 2);
+	theme = (HudTheme)clampInt((int)obs_data_get_int(data, "theme"), 0, 3);
 	pulse = obs_data_get_bool(data, "pulse");
 	pulseHz = clampDouble(obs_data_get_double(data, "pulse_hz"), 0.2, 6.0);
 	tintOpacity = clampDouble(obs_data_get_double(data, "tint_opacity"), 0.0, 0.85);
@@ -128,9 +139,20 @@ void Settings::load()
 	soundEnabled = obs_data_get_bool(data, "sound_enabled");
 	soundPath = obs_data_get_string(data, "sound_path");
 	soundRepeatSeconds = clampInt((int)obs_data_get_int(data, "sound_repeat_seconds"), 0, 600);
+	warnSoundEnabled = obs_data_get_bool(data, "warn_sound_enabled");
+	warnSoundPath = obs_data_get_string(data, "warn_sound_path");
+	builtInSynth = obs_data_get_bool(data, "built_in_synth");
 
 	taskbarFlash = obs_data_get_bool(data, "taskbar_flash");
 	onlyWhenActive = obs_data_get_bool(data, "only_when_active");
+
+	autoHighPriority = obs_data_get_bool(data, "auto_high_priority");
+	autoMultimediaTimer = obs_data_get_bool(data, "auto_multimedia_timer");
+	enablePreWarning = obs_data_get_bool(data, "enable_pre_warning");
+	modernGlow = obs_data_get_bool(data, "modern_glow");
+	hudCorners = obs_data_get_bool(data, "hud_corners");
+	showSparkline = obs_data_get_bool(data, "show_sparkline");
+	autoPausePreviewOnRenderLag = obs_data_get_bool(data, "auto_pause_preview_on_render_lag");
 
 	obs_data_release(data);
 	obs_log(LOG_INFO, "settings loaded from '%s'", path.c_str());
@@ -172,6 +194,17 @@ void Settings::save() const
 	obs_data_set_int(data, "sound_repeat_seconds", soundRepeatSeconds);
 	obs_data_set_bool(data, "taskbar_flash", taskbarFlash);
 	obs_data_set_bool(data, "only_when_active", onlyWhenActive);
+	obs_data_set_bool(data, "auto_high_priority", autoHighPriority);
+	obs_data_set_bool(data, "auto_multimedia_timer", autoMultimediaTimer);
+	obs_data_set_bool(data, "enable_pre_warning", enablePreWarning);
+	obs_data_set_bool(data, "modern_glow", modernGlow);
+	obs_data_set_bool(data, "hud_corners", hudCorners);
+	obs_data_set_int(data, "theme", (int)theme);
+	obs_data_set_bool(data, "show_sparkline", showSparkline);
+	obs_data_set_bool(data, "warn_sound_enabled", warnSoundEnabled);
+	obs_data_set_string(data, "warn_sound_path", warnSoundPath.c_str());
+	obs_data_set_bool(data, "built_in_synth", builtInSynth);
+	obs_data_set_bool(data, "auto_pause_preview_on_render_lag", autoPausePreviewOnRenderLag);
 
 	if (!obs_data_save_json_safe(data, path.c_str(), "tmp", "bak"))
 		obs_log(LOG_WARNING, "failed to save settings to '%s'", path.c_str());

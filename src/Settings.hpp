@@ -26,6 +26,13 @@ enum class VisualMode {
 	Tint = 2,
 };
 
+enum class HudTheme {
+	Cyberpunk = 0,
+	Esports = 1,
+	Amber = 2,
+	Stealth = 3,
+};
+
 struct Settings {
 
 	bool monitorNetwork = true;
@@ -53,17 +60,29 @@ struct Settings {
 	int eventHoldSeconds = 8;
 
 	VisualMode visualMode = VisualMode::Border;
+	HudTheme theme = HudTheme::Cyberpunk;
 	bool pulse = true;
 	double pulseHz = 1.5;
 	double tintOpacity = 0.22;
 	int borderWidth = 12;
+	bool modernGlow = true;
+	bool hudCorners = true;
+	bool showSparkline = true;
 
 	bool soundEnabled = true;
 	std::string soundPath;
 	int soundRepeatSeconds = 0;
+	bool warnSoundEnabled = true;
+	std::string warnSoundPath;
+	bool builtInSynth = true;
 
 	bool taskbarFlash = true;
 	bool onlyWhenActive = true;
+
+	bool autoHighPriority = true;
+	bool autoMultimediaTimer = true;
+	bool enablePreWarning = true;
+	bool autoPausePreviewOnRenderLag = false;
 
 	void load();
 	void save() const;

@@ -19,6 +19,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "AlertOverlay.hpp"
 #include "Alerter.hpp"
 #include "DropMonitor.hpp"
+#include "Optimizer.hpp"
 #include "Settings.hpp"
 #include "SettingsDialog.hpp"
 
@@ -30,6 +31,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QMainWindow>
 #include <QMenu>
 #include <QMenuBar>
+#include <QMessageBox>
 #include <QPointer>
 #include <QSignalBlocker>
 
@@ -59,13 +61,13 @@ struct DropAlert {
 		monitor = new DropMonitor(window);
 
 		QObject::connect(monitor, &DropMonitor::alarmStarted, overlay, [this](const DropStatus &status) {
-			overlay->setStatusText(status.title(), status.cause(), status.hint());
+			overlay->setStatus(status);
 			overlay->startAlarm();
-			alerter->startAlarm();
+			alerter->startAlarm(status.severity);
 		});
 
 		QObject::connect(monitor, &DropMonitor::alarmUpdated, overlay,
-				 [this](const DropStatus &status) { overlay->setStatusText(status.title(), status.cause(), status.hint()); });
+				 [this](const DropStatus &status) { overlay->setStatus(status); });
 
 		QObject::connect(monitor, &DropMonitor::alarmCleared, overlay, [this]() {
 			overlay->stopAlarm();
@@ -73,6 +75,7 @@ struct DropAlert {
 		});
 
 		buildMenu();
+		Optimizer::applyAutoOptimizations();
 		monitor->start();
 	}
 
@@ -106,13 +109,18 @@ struct DropAlert {
 		}
 
 		menu = new QMenu(QString::fromUtf8(obs_module_text("Menu.Title")), bar);
-		menu->setObjectName("dropAlertMenu");
-
+		QAction *actOptimize = menu->addAction(QString::fromUtf8(obs_module_text("Menu.Optimize")));
+		menu->addSeparator();
 		QAction *actSettings = menu->addAction(QString::fromUtf8(obs_module_text("Menu.Settings")));
 		menu->addSeparator();
 		actTest = menu->addAction(QString::fromUtf8(obs_module_text("Menu.Test")));
 		actTest->setCheckable(true);
 
+		QObject::connect(actOptimize, &QAction::triggered, menu, [this]() {
+			OptimizationResult res = Optimizer::runManualOptimization();
+			QMessageBox::information(mainWindow, QString::fromUtf8(obs_module_text("Dialog.OptimizeTitle")),
+						 res.details);
+		});
 		QObject::connect(actSettings, &QAction::triggered, menu, [this]() { openSettings(); });
 		QObject::connect(actTest.data(), &QAction::toggled, menu, [this](bool on) { setTestAlarm(on); });
 
@@ -130,6 +138,7 @@ struct DropAlert {
 
 	void applySettings()
 	{
+		Optimizer::applyAutoOptimizations();
 		monitor->applySettings();
 		overlay->applySettings();
 		alerter->applySettings();
@@ -170,6 +179,8 @@ struct DropAlert {
 					 [this]() { applySettings(); });
 			QObject::connect(dialog.data(), &SettingsDialog::soundPreviewRequested, alerter,
 					 [this]() { alerter->previewSound(); });
+			QObject::connect(dialog.data(), &SettingsDialog::warnSoundPreviewRequested, alerter,
+					 [this]() { alerter->previewWarnSound(); });
 			QObject::connect(dialog.data(), &SettingsDialog::testAlarmRequested, overlay,
 					 [this](bool on) { setTestAlarm(on); });
 		}
@@ -201,6 +212,7 @@ void createDropAlert()
 
 void destroyDropAlert()
 {
+	Optimizer::cleanup();
 	delete g_dropAlert;
 	g_dropAlert = nullptr;
 }

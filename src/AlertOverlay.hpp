@@ -18,9 +18,12 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #pragma once
 
+#include "DropMonitor.hpp"
+
 #include <QString>
 #include <QTimer>
 #include <QWidget>
+#include <vector>
 
 class AlertOverlay : public QWidget {
 	Q_OBJECT
@@ -32,7 +35,9 @@ public:
 	void startAlarm();
 	void stopAlarm();
 
-	void setStatusText(const QString &title, const QString &cause, const QString &hint);
+	void setStatus(const DropStatus &status);
+	void setStatusText(const QString &title, const QString &cause, const QString &hint,
+			   AlertSeverity severity = AlertSeverity::Critical);
 
 	void applySettings();
 
@@ -53,6 +58,10 @@ private:
 	QString m_title;
 	QString m_cause;
 	QString m_hint;
+	AlertSeverity m_severity = AlertSeverity::Critical;
+	std::vector<double> m_history;
+	int64_t m_droppedFrames = 0;
+	int64_t m_totalFrames = 0;
 	double m_phase = 0.0;
 	bool m_alarmActive = false;
 };

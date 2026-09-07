@@ -48,6 +48,8 @@ target_sources(
     src/Settings.hpp
     src/SettingsDialog.cpp
     src/SettingsDialog.hpp
+    src/Optimizer.cpp
+    src/Optimizer.hpp
 )
 
 if(OS_WINDOWS)

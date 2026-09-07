@@ -18,36 +18,22 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #pragma once
 
-#include "DropMonitor.hpp"
-
-#include <QObject>
 #include <QString>
-#include <QTimer>
 
-class Alerter : public QObject {
-	Q_OBJECT
+struct OptimizationResult {
+	bool prioritySuccess = false;
+	bool timerSuccess = false;
+	QString details;
+};
 
+class Optimizer {
 public:
-	explicit Alerter(QObject *parent = nullptr);
-	~Alerter() override;
+	static void applyAutoOptimizations();
+	static void cleanup();
 
-	void startAlarm(AlertSeverity severity = AlertSeverity::Critical);
-	void stopAlarm();
-	void applySettings();
+	static bool setHighPriority(bool enable);
+	static bool setMultimediaTimer(bool enable);
 
-	void previewSound();
-	void previewWarnSound();
-
-private slots:
-	void onRepeatTick();
-
-private:
-	void playSound(AlertSeverity severity);
-	void playBuiltInTone(AlertSeverity severity);
-	void setTaskbarFlash(bool on);
-
-	QString resolveSoundPath(AlertSeverity severity) const;
-
-	AlertSeverity m_currentSeverity = AlertSeverity::Critical;
-	QTimer m_repeatTimer;
+	static OptimizationResult runManualOptimization();
+	static QString getStatusSummary();
 };

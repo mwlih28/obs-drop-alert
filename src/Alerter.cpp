@@ -32,8 +32,8 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #define NOMINMAX
 #endif
 #include <windows.h>
-
 #include <mmsystem.h>
+#include <thread>
 
 Alerter::Alerter(QObject *parent) : QObject(parent)
 {
@@ -46,9 +46,19 @@ Alerter::~Alerter()
 	stopAlarm();
 }
 
-QString Alerter::resolveSoundPath() const
+QString Alerter::resolveSoundPath(AlertSeverity severity) const
 {
 	const Settings &s = settings();
+
+	if (severity == AlertSeverity::Warning) {
+		if (!s.warnSoundPath.empty()) {
+			const QString custom = QString::fromStdString(s.warnSoundPath);
+			if (QFile::exists(custom))
+				return custom;
+		}
+		// Warning için özel dosya yoksa ve synth isteniyorsa boş dönüp syntha düşecek
+		return QString();
+	}
 
 	if (!s.soundPath.empty()) {
 		const QString custom = QString::fromStdString(s.soundPath);
@@ -67,9 +77,37 @@ QString Alerter::resolveSoundPath() const
 	return path;
 }
 
-void Alerter::playSound()
+void Alerter::playBuiltInTone(AlertSeverity severity)
 {
-	const QString path = resolveSoundPath();
+	// Non-blocking arka plan iş parçacığında pürüzsüz melodik ton
+	std::thread([severity]() {
+		if (severity == AlertSeverity::Warning) {
+			Beep(659, 100);
+			Sleep(30);
+			Beep(880, 130);
+		} else {
+			Beep(880, 110);
+			Sleep(25);
+			Beep(587, 110);
+			Sleep(25);
+			Beep(880, 160);
+		}
+	}).detach();
+}
+
+void Alerter::playSound(AlertSeverity severity)
+{
+	const Settings &s = settings();
+
+	if (severity == AlertSeverity::Warning) {
+		if (!s.warnSoundEnabled)
+			return;
+	} else {
+		if (!s.soundEnabled)
+			return;
+	}
+
+	const QString path = resolveSoundPath(severity);
 
 	if (!path.isEmpty()) {
 		const std::wstring wide = path.toStdWString();
@@ -78,7 +116,12 @@ void Alerter::playSound()
 		obs_log(LOG_WARNING, "PlaySound failed for '%s'", path.toUtf8().constData());
 	}
 
-	MessageBeep(MB_ICONHAND);
+	if (s.builtInSynth) {
+		playBuiltInTone(severity);
+		return;
+	}
+
+	MessageBeep(severity == AlertSeverity::Warning ? MB_ICONWARNING : MB_ICONHAND);
 }
 
 void Alerter::setTaskbarFlash(bool on)
@@ -98,19 +141,22 @@ void Alerter::setTaskbarFlash(bool on)
 	FlashWindowEx(&info);
 }
 
-void Alerter::startAlarm()
+void Alerter::startAlarm(AlertSeverity severity)
 {
+	m_currentSeverity = severity;
 	const Settings &s = settings();
 
-	if (s.soundEnabled)
-		playSound();
+	playSound(severity);
 
 	if (s.taskbarFlash)
 		setTaskbarFlash(true);
 
-	if (s.soundEnabled && s.soundRepeatSeconds > 0) {
+	const bool canRepeat = (severity == AlertSeverity::Critical) && s.soundEnabled && (s.soundRepeatSeconds > 0);
+	if (canRepeat) {
 		m_repeatTimer.setInterval(s.soundRepeatSeconds * 1000);
 		m_repeatTimer.start();
+	} else {
+		m_repeatTimer.stop();
 	}
 }
 
@@ -136,11 +182,15 @@ void Alerter::applySettings()
 
 void Alerter::previewSound()
 {
-	playSound();
+	playSound(AlertSeverity::Critical);
+}
+
+void Alerter::previewWarnSound()
+{
+	playSound(AlertSeverity::Warning);
 }
 
 void Alerter::onRepeatTick()
 {
-	if (settings().soundEnabled)
-		playSound();
+	playSound(m_currentSeverity);
 }

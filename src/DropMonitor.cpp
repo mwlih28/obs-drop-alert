@@ -40,9 +40,9 @@ constexpr uint64_t kNsPerSecond = 1000000000ull;
 uint64_t awakeMs()
 {
 	ULONGLONG ticks = 0;
-	if (!QueryUnbiasedInterruptTime(&ticks))
-		return 0;
-	return (uint64_t)(ticks / 10000ull);
+	if (QueryUnbiasedInterruptTime(&ticks))
+		return (uint64_t)(ticks / 10000ull);
+	return (uint64_t)GetTickCount64();
 }
 constexpr double kBytesPerGb = 1024.0 * 1024.0 * 1024.0;
 
@@ -139,7 +139,11 @@ QString DropStatus::title() const
 {
 	const QString name = kindString(kind, "Title");
 	const QString measured = formatValue(kind, value);
-	const QString full = measured.isEmpty() ? name : QString("%1 %2").arg(name, measured);
+	QString full = measured.isEmpty() ? name : QString("%1 %2").arg(name, measured);
+	if (severity == AlertSeverity::Warning) {
+		const QString warnPrefix = QString::fromUtf8(obs_module_text("Alert.WarningPrefix"));
+		full = warnPrefix.isEmpty() ? QString("[UYARI] %1").arg(full) : QString("%1 %2").arg(warnPrefix, full);
+	}
 	if (!isTest)
 		return full;
 	return QString::fromUtf8(obs_module_text("Alert.TestPrefix")).arg(full);
@@ -314,63 +318,144 @@ void DropMonitor::evaluate(const Sample &now)
 		}
 	};
 
+	DropKind worstWarnKind = DropKind::None;
+	double worstWarnSeverity = 0.0;
+	double worstWarnValue = 0.0;
+
+	auto considerWarn = [&](DropKind kind, double value, double threshold) {
+		if (!s.enablePreWarning || threshold <= 0.0 || value < threshold * 0.5)
+			return;
+		const double severity = value / threshold;
+		if (severity > worstWarnSeverity) {
+			worstWarnSeverity = severity;
+			worstWarnKind = kind;
+			worstWarnValue = value;
+		}
+	};
+
 	if (const Sample *base = windowStart()) {
 		if (s.monitorNetwork) {
-			const double pct = ratePercent(now.netDropped - base->netDropped, now.netTotal - base->netTotal);
+			const int64_t d = now.netDropped - base->netDropped;
+			const int64_t t = now.netTotal - base->netTotal;
+			const double pct = ratePercent(d, t);
+			if (pct > worstValue) {
+				m_currentDropped = d;
+				m_currentTotal = t;
+			}
 			consider(DropKind::Network, pct, s.thresholdNetworkPct);
+			considerWarn(DropKind::Network, pct, s.thresholdNetworkPct);
 		}
 		if (s.monitorRender) {
-			const double pct = ratePercent((int64_t)now.lagged - (int64_t)base->lagged,
-						       (int64_t)now.rendered - (int64_t)base->rendered);
+			const int64_t d = (int64_t)now.lagged - (int64_t)base->lagged;
+			const int64_t t = (int64_t)now.rendered - (int64_t)base->rendered;
+			const double pct = ratePercent(d, t);
+			if (pct > worstValue) {
+				m_currentDropped = d;
+				m_currentTotal = t;
+			}
 			consider(DropKind::Render, pct, s.thresholdRenderPct);
+			considerWarn(DropKind::Render, pct, s.thresholdRenderPct);
 		}
 		if (s.monitorEncoder) {
-			const double pct = ratePercent((int64_t)now.skipped - (int64_t)base->skipped,
-						       (int64_t)now.encoded - (int64_t)base->encoded);
+			const int64_t d = (int64_t)now.skipped - (int64_t)base->skipped;
+			const int64_t t = (int64_t)now.encoded - (int64_t)base->encoded;
+			const double pct = ratePercent(d, t);
+			if (pct > worstValue) {
+				m_currentDropped = d;
+				m_currentTotal = t;
+			}
 			consider(DropKind::Encoder, pct, s.thresholdEncoderPct);
+			considerWarn(DropKind::Encoder, pct, s.thresholdEncoderPct);
 		}
 		if (s.monitorDisk) {
-			const double pct = ratePercent(now.recDropped - base->recDropped, now.recTotal - base->recTotal);
+			const int64_t d = now.recDropped - base->recDropped;
+			const int64_t t = now.recTotal - base->recTotal;
+			const double pct = ratePercent(d, t);
+			if (pct > worstValue) {
+				m_currentDropped = d;
+				m_currentTotal = t;
+			}
 			consider(DropKind::Record, pct, s.thresholdRecordPct);
+			considerWarn(DropKind::Record, pct, s.thresholdRecordPct);
 		}
 	}
 
 	if (s.monitorDisk) {
-		const QString dir = recordingDirectory();
-		if (!dir.isEmpty()) {
-			const uint64_t freeBytes = os_get_free_disk_space(dir.toUtf8().constData());
-			const double freeGb = (double)freeBytes / kBytesPerGb;
-			if (freeBytes > 0 && freeGb < s.thresholdDiskGb) {
-				const double severity = s.thresholdDiskGb / std::max(freeGb, 0.01);
-				if (severity > worstSeverity) {
-					worstSeverity = severity;
-					worstKind = DropKind::Disk;
-					worstValue = freeGb;
-				}
+		const uint64_t kDiskCheckIntervalNs = 5ull * kNsPerSecond;
+		if (m_lastDiskCheckNs == 0 || now.timeNs - m_lastDiskCheckNs >= kDiskCheckIntervalNs) {
+			m_lastDiskCheckNs = now.timeNs;
+			m_cachedRecDir = recordingDirectory();
+			if (!m_cachedRecDir.isEmpty()) {
+				const uint64_t freeBytes = os_get_free_disk_space(m_cachedRecDir.toUtf8().constData());
+				m_cachedFreeGb = (freeBytes > 0) ? ((double)freeBytes / kBytesPerGb) : 1000.0;
+			}
+		}
+
+		if (!m_cachedRecDir.isEmpty() && m_cachedFreeGb < s.thresholdDiskGb) {
+			const double severity = s.thresholdDiskGb / std::max(m_cachedFreeGb, 0.01);
+			if (severity > worstSeverity) {
+				worstSeverity = severity;
+				worstKind = DropKind::Disk;
+				worstValue = m_cachedFreeGb;
 			}
 		}
 	}
 
-	const bool over = worstKind != DropKind::None;
+	const bool overCritical = worstKind != DropKind::None;
+	const bool overWarning = !overCritical && worstWarnKind != DropKind::None;
 
-	if (over) {
+	// Sparkline geçmiş tamponunu güncelle
+	const double currentVal = overCritical ? worstValue : (overWarning ? worstWarnValue : 0.0);
+	m_sparklineHistory.push_back(currentVal);
+	if (m_sparklineHistory.size() > 25)
+		m_sparklineHistory.erase(m_sparklineHistory.begin());
+
+	// Akıllı Otopilot: GPU Render Lag anında önizlemeyi duraklatıp yayını kurtarma
+	if (s.autoPausePreviewOnRenderLag && overCritical && worstKind == DropKind::Render) {
+		if (obs_frontend_preview_enabled()) {
+			obs_frontend_set_preview_enabled(false);
+			obs_log(LOG_INFO, "DropMonitor: Auto-Pilot paused OBS preview to mitigate GPU render lag!");
+		}
+	}
+
+	if (overCritical) {
 		m_overCount++;
+		m_warnCount = 0;
 		m_lastOverNs = now.timeNs;
 
 		if (!m_status.active && m_overCount >= s.triggerSamples) {
-			setAlarm(true, worstKind, worstValue);
+			setAlarm(true, worstKind, worstValue, AlertSeverity::Critical);
 		} else if (m_status.active) {
-
 			m_status.kind = worstKind;
 			m_status.value = worstValue;
+			m_status.severity = AlertSeverity::Critical;
+			m_status.history = m_sparklineHistory;
+			m_status.droppedFrames = m_currentDropped;
+			m_status.totalFrames = m_currentTotal;
+			emit alarmUpdated(m_status);
+		}
+	} else if (overWarning) {
+		m_warnCount++;
+		m_overCount = 0;
+		m_lastOverNs = now.timeNs;
+
+		if (!m_status.active && m_warnCount >= s.triggerSamples) {
+			setAlarm(true, worstWarnKind, worstWarnValue, AlertSeverity::Warning);
+		} else if (m_status.active) {
+			m_status.kind = worstWarnKind;
+			m_status.value = worstWarnValue;
+			m_status.history = m_sparklineHistory;
+			m_status.droppedFrames = m_currentDropped;
+			m_status.totalFrames = m_currentTotal;
 			emit alarmUpdated(m_status);
 		}
 	} else {
 		m_overCount = 0;
+		m_warnCount = 0;
 		if (m_status.active) {
 			const uint64_t clearNs = (uint64_t)s.clearSeconds * kNsPerSecond;
 			if (now.timeNs - m_lastOverNs >= clearNs)
-				setAlarm(false, DropKind::None, 0.0);
+				setAlarm(false, DropKind::None, 0.0, AlertSeverity::None);
 		}
 	}
 }
@@ -426,20 +511,20 @@ bool DropMonitor::checkEvents(uint64_t nowNs, uint64_t lateMs)
 											                  : QString();
 		if (!fresh.isEmpty()) {
 			m_holdUntilNs = nowNs + holdNs;
-			setAlarm(true, DropKind::OutputError, 0.0, fresh);
+			setAlarm(true, DropKind::OutputError, 0.0, AlertSeverity::Critical, fresh);
 			return true;
 		}
 	}
 
 	if (s.monitorStreamDrop && reconnecting) {
 		m_holdUntilNs = nowNs + holdNs;
-		setAlarm(true, DropKind::StreamDropped, 0.0);
+		setAlarm(true, DropKind::StreamDropped, 0.0, AlertSeverity::Critical);
 		return true;
 	}
 
 	if (s.monitorStall && lateMs >= (uint64_t)s.stallMs) {
 		m_holdUntilNs = nowNs + holdNs;
-		setAlarm(true, DropKind::Stall, (double)lateMs / 1000.0);
+		setAlarm(true, DropKind::Stall, (double)lateMs / 1000.0, AlertSeverity::Critical);
 		return true;
 	}
 
@@ -447,15 +532,16 @@ bool DropMonitor::checkEvents(uint64_t nowNs, uint64_t lateMs)
 		if (nowNs < m_holdUntilNs)
 			return true;
 		m_holdUntilNs = 0;
-		setAlarm(false, DropKind::None, 0.0);
+		setAlarm(false, DropKind::None, 0.0, AlertSeverity::None);
 	}
 
 	return false;
 }
 
-void DropMonitor::setAlarm(bool on, DropKind kind, double value, const QString &detail)
+void DropMonitor::setAlarm(bool on, DropKind kind, double value, AlertSeverity severity, const QString &detail)
 {
-	if (m_status.active == on && m_status.kind == kind && m_status.detail == detail) {
+	if (m_status.active == on && m_status.kind == kind && m_status.detail == detail &&
+	    m_status.severity == severity) {
 		if (on && m_status.value != value) {
 			m_status.value = value;
 			emit alarmUpdated(m_status);
@@ -466,11 +552,16 @@ void DropMonitor::setAlarm(bool on, DropKind kind, double value, const QString &
 	m_status.active = on;
 	m_status.kind = kind;
 	m_status.value = value;
+	m_status.severity = severity;
 	m_status.detail = detail;
+	m_status.history = m_sparklineHistory;
+	m_status.droppedFrames = m_currentDropped;
+	m_status.totalFrames = m_currentTotal;
 	m_status.isTest = false;
 
 	if (on) {
-		obs_log(LOG_WARNING, "drop alarm ON (%s)", m_status.text().toUtf8().constData());
+		obs_log(LOG_WARNING, "drop alarm ON (%s, severity=%s)", m_status.text().toUtf8().constData(),
+			severity == AlertSeverity::Warning ? "WARNING" : "CRITICAL");
 		emit alarmStarted(m_status);
 	} else {
 		obs_log(LOG_INFO, "drop alarm OFF");
@@ -483,9 +574,13 @@ void DropMonitor::fireTestAlarm()
 	m_testActive = true;
 	m_status.active = true;
 	m_status.kind = DropKind::Network;
-	m_status.value = 42.0;
+	m_status.severity = AlertSeverity::Critical;
+	m_status.value = 4.20;
 	m_status.detail.clear();
 	m_status.isTest = true;
+	m_status.history = {0.6, 1.1, 0.9, 1.8, 2.4, 3.1, 2.8, 3.9, 4.5, 4.1, 4.8, 4.2};
+	m_status.droppedFrames = 168;
+	m_status.totalFrames = 4000;
 	obs_log(LOG_INFO, "test alarm ON");
 	emit alarmStarted(m_status);
 }
@@ -495,10 +590,12 @@ void DropMonitor::clearTestAlarm()
 	m_testActive = false;
 	m_status.active = false;
 	m_status.kind = DropKind::None;
+	m_status.severity = AlertSeverity::None;
 	m_status.value = 0.0;
 	m_status.detail.clear();
 	m_status.isTest = false;
 	m_overCount = 0;
+	m_warnCount = 0;
 	m_samples.clear();
 	obs_log(LOG_INFO, "test alarm OFF");
 	emit alarmCleared();

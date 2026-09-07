@@ -68,33 +68,26 @@ yani "şu anda drop var mı" sorusuna cevap verir. Eşiğin tam sınırında ala
 titrememesi için histerezis uygulanır: alarm üst üste K örnek (varsayılan 2)
 aşımdan sonra başlar, M saniye (varsayılan 3) temiz geçince söner.
 
-## Uyarı biçimleri
+## Uyarı biçimleri & Yeni Nesil HUD
 
 Hepsi OBS'in üst menü çubuğundaki **Drop Uyarısı** menüsünden ayarlanabilir
-(Araçlar ile Yardım arasında). Menüde iki şey var: **Ayarlar...** ve doğrudan
-açılıp kapatılabilen **Test uyarısı**.
+(Araçlar ile Yardım arasında). Menüde: **Ayarlar...**, **⚡ OBS ve Yayını Optimize Et**
+ve doğrudan açılıp kapatılabilen **Test uyarısı** bulunur.
 
-Menü, `obs_frontend_add_tools_menu_qaction` ile değil, ana pencerenin
-`QMenuBar`'ına doğrudan ekleniyor — frontend API'si yalnızca Araçlar menüsüne
-ekleme sunuyor. Yardım menüsü `menuBasic_MainMenu_Help` nesne adından bulunup
-kendi menümüz onun soluna yerleştiriliyor, böylece Yardım en sağda kalıyor.
-
-- **Kırmızı kenarlık** — OBS penceresinin çevresinde kalın kırmızı çerçeve, üst
-  ortada da üç satırlık bir teşhis kartı: **ne oldu**, **neden oldu**, **ne
-  yapmalı**. Örneğin:
-
-  > **Ağ drop'u %4.20**
-  > İnternet bağlantın yayının bit hızını taşıyamıyor, OBS kareleri atmak zorunda kalıyor.
-  > Bit hızını düşür ya da kablolu bağlantıya geç. İzleyiciler şu an takılma görüyor.
-
-  Kodlama hatasında öneri satırının yerini OBS'in **kendi hata metni** alır.
-- **Tüm pencere kırmızı** — kenarlığa ek olarak tüm pencereye ayarlanabilir
-  yoğunlukta kırmızı yıkama.
-- **Yanıp sönme** — sabit renk yerine ayarlanabilir hızda nabız.
-- **Uyarı sesi** — eklentiyle gelen `alert.wav` ya da kendi seçtiğin bir WAV;
-  istenirse alarm sürdükçe belirli aralıkla tekrarlar.
-- **Görev çubuğu flaşı** — OBS başka pencerenin arkasındayken görev çubuğundaki
-  OBS düğmesi yanıp söner.
+- **Ultra-Modern Cyberpunk / Esports HUD** — OBS penceresinin çevresinde çok katmanlı neon
+  ışıldama (glow), 4 köşede fütüristik köşe braketleri ve derin akrilik (frosted glass) cam kart.
+- **Canlı Sparkline Geçmiş Grafiği** — Teşhis kartında son 10 saniyelik drop oranını ve kare
+  kaybını canlı dalga formu olarak çizer; sorunun arttığını veya azaldığını anlık görürsün.
+- **Canlı Kare Sayacı** — Düşen ve toplam kare sayısı kart üzerinde anlık gösterilir.
+- **Hazır Görsel Temalar** — `Cyberpunk Neon`, `Esports Pro (Kırmızı)`, `Amber Alert (Altın)`, `Stealth Minimal`.
+- **İki Kademeli Renk Sistemi** — Erken uyarılarda sarı/amber ikaz, kritik durumlarda neon kırmızı alarm.
+- **Çift Ses & Sentetik Melodi Üreticisi** — İkaz ve alarm için ayrı sesler; WAV dosyası seçilmemiş
+  olsa bile Windows multimedia donanımıyla temiz iki-tonlu melodik ikaz üretir.
+- **⚡ Proaktif Sistem & Yayın Koruyucu (Otopilot)**:
+  - **Yüksek İşlem Önceliği (`HIGH_PRIORITY_CLASS`)** — Oyun altındayken OBS'in kare kaçırmasını önler.
+  - **1ms Windows Hassas Zamanlayıcısı (`timeBeginPeriod(1)`)** — Frame jitter ve mikro takılmaları sıfıra indirir.
+  - **Otomatik GPU Koruması** — Render drop başladığında OBS önizlemesini otomatik duraklatıp GPU yükünü anında %15 düşürerek yayını kurtarır.
+  - **Canlı Sistem Teşhisi** — Ayarlar penceresindeki 5. sekmede anlık FPS, drop oranları, disk durumu ve koruma modu canlı izlenebilir.
 
 **Test uyarısı** düğmesi gerçek bir drop beklemeden tüm zinciri çalıştırır ve
 penceredeki güncel (henüz kaydedilmemiş) değerleri kullanır, böylece görünümü
