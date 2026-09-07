@@ -20,7 +20,7 @@
 #define MyAppName "OBS Drop Uyarısı"
 #define MyAppModule "obs-drop-alert"
 #define MyAppPublisher "yazar"
-#define MyAppURL "https://github.com/yazar/obs-drop-alert"
+#define MyAppURL "https://github.com/mwlih28/obs-drop-alert"
 
 [Setup]
 AppId={{7B2F9C14-6E3A-4D51-9A88-1C0E5D3F7A62}

@@ -1,6 +1,6 @@
 /*
 OBS Drop Alert
-Copyright (C) 2026 yazar <mwlih28@gmail.com>
+Copyright (C) 2026 yazar <mwlih28@users.noreply.github.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

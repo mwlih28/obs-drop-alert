@@ -7,9 +7,35 @@ Amaç basit: drop olduğunu anlamak için Stats penceresini açıp bakmak zorund
 kalmamak. Oyun oynarken OBS arka planda kaldığında drop dakikalarca fark
 edilmeden sürebiliyor — bu eklentide uyarı kendisi dikkat çekiyor.
 
+> **English:** an OBS plugin that makes the OBS window turn red, pulse, play a
+> sound and flash the taskbar the moment your stream starts dropping frames —
+> so you find out while you are playing, instead of minutes later.
+>
+> It does not just say *something* is wrong. Every alert states **what** broke,
+> **why** it broke and **what to do about it**, for example:
+>
+> > **Network drops 4.20%**
+> > Your connection cannot carry the stream bitrate, so OBS is dropping frames.
+> > Lower the bitrate or switch to a wired connection. Viewers are seeing stutter right now.
+>
+> It watches network / render / encoder / recording frame loss and free disk
+> space against a **sliding window** (OBS's own Stats percentages are cumulative,
+> so a ten-second burst two hours into a stream barely moves them), plus three
+> event-based failures: **encoding errors** (OBS's own output error is shown
+> verbatim), **stream disconnects** (while OBS is reconnecting and viewers
+> cannot see you) and **OBS stalls** (the "not responding" freeze, detected from
+> how late the poll timer fires on OBS's UI thread).
+>
+> Settings live in a **Drop Alert** menu on the OBS menu bar. Fully localized in
+> English and Turkish. Windows installer on the
+> [Releases page](https://github.com/mwlih28/obs-drop-alert/releases) — it finds
+> your OBS installation on its own and needs no administrator rights.
+> GPL-2.0.
+
 ## Ne izliyor
 
-Dört sorun türü, her biri ayrı ayrı açılıp kapatılabilir ve kendi eşiği var:
+Her biri ayrı ayrı açılıp kapatılabilir. İlk dördü kayan pencerede yüzde eşiğine
+bakar, son üçü ise eşiksiz **olaylardır** — ya olur ya olmaz:
 
 | Sorun | Kaynak | Ne zaman olur |
 |---|---|---|
@@ -17,6 +43,17 @@ Dört sorun türü, her biri ayrı ayrı açılıp kapatılabilir ve kendi eşi�
 | Render lag | `obs_get_lagged_frames()` | GPU sahneyi zamanında oluşturamadığında |
 | Encoder overload | `video_output_get_skipped_frames()` | encoder ayarı CPU'ya ağır geldiğinde |
 | Kayıt / disk | kayıt çıktısının düşen kareleri + boş disk alanı | disk yetişemediğinde veya dolmak üzereyken |
+| **Kodlama hatası** | `obs_output_get_last_error()` | OBS çıktıyı sürdüremeyip hata verdiğinde |
+| **Yayın koptu** | `obs_output_reconnecting()` | sunucu bağlantısı kesilip yeniden denenirken |
+| **OBS takıldı** | poll zamanlayıcısının gecikmesi | arayüz "bekleme modu"na girip yanıt vermediğinde |
+
+Son üçü eşik ölçümünün **önünde** değerlendirilir — kopmuş bir yayın, yüzde kaç
+kare düştüğünden önemlidir — ve anlık oldukları için ekranda `eventHoldSeconds`
+(varsayılan 8 sn) boyunca tutulurlar.
+
+Takılma tespiti bedava geliyor: poll zamanlayıcısı zaten OBS'in ana iş
+parçacığında atıyor, dolayısıyla arayüz donduğunda zamanlayıcı da gecikiyor.
+Gecikmenin kendisi ölçüm oluyor.
 
 ### Neden kayan pencere
 
@@ -40,9 +77,15 @@ Menü, `obs_frontend_add_tools_menu_qaction` ile değil, ana pencerenin
 ekleme sunuyor. Yardım menüsü `menuBasic_MainMenu_Help` nesne adından bulunup
 kendi menümüz onun soluna yerleştiriliyor, böylece Yardım en sağda kalıyor.
 
-- **Kırmızı kenarlık** — OBS penceresinin çevresinde kalın kırmızı çerçeve,
-  üst ortada sorunun adını ve oranını gösteren bir rozet
-  (örn. `ENCODER OVERLOAD (CPU) 8.40%`).
+- **Kırmızı kenarlık** — OBS penceresinin çevresinde kalın kırmızı çerçeve, üst
+  ortada da üç satırlık bir teşhis kartı: **ne oldu**, **neden oldu**, **ne
+  yapmalı**. Örneğin:
+
+  > **Ağ drop'u %4.20**
+  > İnternet bağlantın yayının bit hızını taşıyamıyor, OBS kareleri atmak zorunda kalıyor.
+  > Bit hızını düşür ya da kablolu bağlantıya geç. İzleyiciler şu an takılma görüyor.
+
+  Kodlama hatasında öneri satırının yerini OBS'in **kendi hata metni** alır.
 - **Tüm pencere kırmızı** — kenarlığa ek olarak tüm pencereye ayarlanabilir
   yoğunlukta kırmızı yıkama.
 - **Yanıp sönme** — sabit renk yerine ayarlanabilir hızda nabız.
@@ -133,7 +176,7 @@ C:\ProgramData\obs-studio\plugins\obs-drop-alert\data\locale\*.ini
 Geliştirme sırasında kopyalamadan denemek için `OBS_PLUGINS_PATH` ve
 `OBS_PLUGINS_DATA_PATH` ortam değişkenleri de kullanılabilir.
 
-OBS'i yeniden başlat. Araçlar menüsünde **Drop Uyarısı Ayarları** görünüyorsa
+OBS'i yeniden başlat. Üst menü çubuğunda **Drop Uyarısı** menüsü görünüyorsa
 eklenti yüklenmiştir. Log'da şu satırlar olmalı:
 
 ```
@@ -166,7 +209,7 @@ src/DropMonitor.*         sayaç okuma, kayan pencere, histerezis
 src/AlertOverlay.*        kırmızı katman, nabız, sebep rozeti
 src/Alerter.*             uyarı sesi (winmm) + görev çubuğu flaşı (FlashWindowEx)
 src/Settings.*            JSON ayar yükleme/kaydetme
-src/SettingsDialog.*      Araçlar menüsünden açılan ayar penceresi
+src/SettingsDialog.*      Menü çubuğundan açılan ayar penceresi
 data/locale/*.ini         tr-TR ve en-US metinleri
 data/alert.wav            varsayılan uyarı sesi
 ```
