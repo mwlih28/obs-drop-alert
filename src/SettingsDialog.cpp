@@ -21,6 +21,9 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include <obs-module.h>
 
+#include <algorithm>
+
+#include <QGuiApplication>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDialogButtonBox>
@@ -33,6 +36,10 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QScreen>
+#include <QScrollArea>
+#include <QScrollBar>
+#include <QTimer>
 #include <QSpinBox>
 #include <QVBoxLayout>
 
@@ -62,11 +69,34 @@ SettingsDialog::SettingsDialog(QWidget *parent) : QDialog(parent)
 	buildUi();
 	loadFromSettings();
 	updateEnabledStates();
+	fitToScreen();
+}
+
+void SettingsDialog::fitToScreen()
+{
+	const QScreen *screen = parentWidget() ? parentWidget()->screen() : QGuiApplication::primaryScreen();
+	if (!screen)
+		return;
+
+	const int maxHeight = (int)(screen->availableGeometry().height() * 0.85);
+
+	/* sizeHint() kaydirma alani yuzunden icerikten cok daha kucuk cikiyor;
+	 * pencereyi icerigin gercek boyuna gore ac ki gereksiz kaydirma olmasin. */
+	int wantedHeight = sizeHint().height();
+	if (m_scroll && m_scroll->widget())
+		wantedHeight = std::max(wantedHeight, m_scroll->widget()->sizeHint().height() + 90);
+
+	resize(sizeHint().width(), std::min(wantedHeight, maxHeight));
+	setMaximumHeight(screen->availableGeometry().height());
 }
 
 void SettingsDialog::buildUi()
 {
-	auto *root = new QVBoxLayout(this);
+	auto *outer = new QVBoxLayout(this);
+
+	auto *content = new QWidget(this);
+	auto *root = new QVBoxLayout(content);
+	root->setContentsMargins(0, 0, 0, 0);
 
 	auto *monitorGroup = new QGroupBox(T("Group.Monitor"), this);
 	auto *monitorGrid = new QGridLayout(monitorGroup);
@@ -223,6 +253,16 @@ void SettingsDialog::buildUi()
 	tuningForm->addRow(m_onlyWhenActive);
 
 	root->addWidget(tuningGroup);
+	root->addStretch(1);
+
+	auto *scroll = new QScrollArea(this);
+	m_scroll = scroll;
+	scroll->setWidget(content);
+	scroll->setWidgetResizable(true);
+	scroll->setFrameShape(QFrame::NoFrame);
+	scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+	scroll->setMinimumWidth(content->sizeHint().width() + 24);
+	outer->addWidget(scroll, 1);
 
 	auto *buttonRow = new QHBoxLayout();
 	m_test = new QPushButton(T("Button.Test"));
@@ -234,7 +274,7 @@ void SettingsDialog::buildUi()
 	auto *buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel |
 					     QDialogButtonBox::RestoreDefaults);
 	buttonRow->addWidget(buttons);
-	root->addLayout(buttonRow);
+	outer->addLayout(buttonRow);
 
 	connect(buttons, &QDialogButtonBox::accepted, this, &SettingsDialog::onSave);
 	connect(buttons, &QDialogButtonBox::rejected, this, &SettingsDialog::reject);
@@ -392,6 +432,28 @@ void SettingsDialog::setTestChecked(bool on)
 		return;
 	const QSignalBlocker blocker(m_test);
 	m_test->setChecked(on);
+}
+
+void SettingsDialog::showEvent(QShowEvent *event)
+{
+	QDialog::showEvent(event);
+
+	/* Pencere tek ornek olarak yasiyor. Yeniden acilirken kaydedilmis degerleri
+	 * okumazsak, kullanici Iptal ile vazgectigi degisiklikleri tekrar gorur ve
+	 * o ayarin gecerli oldugunu sanir. */
+	loadFromSettings();
+	updateEnabledStates();
+
+	if (!m_scroll)
+		return;
+
+	/* Qt odakli bileseni gorunur kilmak icin kaydiriyor; odagi en ustteki
+	 * kutucuga alip kaydirmayi yerlestirme bittikten sonra sifirliyoruz,
+	 * yoksa pencere ortadan acilmis gibi gorunuyor. */
+	if (m_network)
+		m_network->setFocus(Qt::OtherFocusReason);
+
+	QTimer::singleShot(0, m_scroll, [this]() { m_scroll->verticalScrollBar()->setValue(0); });
 }
 
 void SettingsDialog::done(int result)

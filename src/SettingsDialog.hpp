@@ -25,6 +25,7 @@ class QComboBox;
 class QDoubleSpinBox;
 class QLineEdit;
 class QPushButton;
+class QScrollArea;
 class QSpinBox;
 
 class SettingsDialog : public QDialog {
@@ -45,6 +46,7 @@ signals:
 
 protected:
 	void done(int result) override;
+	void showEvent(QShowEvent *event) override;
 
 private slots:
 	void onSave();
@@ -55,6 +57,9 @@ private slots:
 
 private:
 	void buildUi();
+	void fitToScreen();
+
+	QScrollArea *m_scroll = nullptr;
 	void loadFromSettings();
 	void storeToSettings();
 
