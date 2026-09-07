@@ -204,11 +204,12 @@ void AlertOverlay::paintEvent(QPaintEvent *)
 
 	QFont titleFont = p.font();
 	titleFont.setBold(true);
-	titleFont.setPointSizeF(std::max(13.0, (double)s.borderWidth * 1.05));
+	const double fontCeiling = std::max(12.0, (double)height() / 26.0);
+	titleFont.setPointSizeF(std::min(std::max(13.0, (double)s.borderWidth * 1.05), fontCeiling));
 
 	QFont bodyFont = p.font();
 	bodyFont.setBold(false);
-	bodyFont.setPointSizeF(std::max(9.5, (double)s.borderWidth * 0.70));
+	bodyFont.setPointSizeF(std::min(std::max(9.5, (double)s.borderWidth * 0.70), fontCeiling * 0.66));
 
 	const QFontMetrics titleFm(titleFont);
 	const QFontMetrics bodyFm(bodyFont);
@@ -233,6 +234,9 @@ void AlertOverlay::paintEvent(QPaintEvent *)
 	if (!m_hint.isEmpty())
 		cardH += gap + hintR.height();
 
+	const int maxCardH = std::max(40, height() - 2 * w - 20);
+	cardH = std::min(cardH, maxCardH);
+
 	const int contentW = std::max(titleR.width(), std::max(causeR.width(), hintR.width()));
 	const int cardW = std::min(maxCardW, contentW + 2 * padX);
 	const QRect card((width() - cardW) / 2, w + 10, cardW, cardH);
@@ -244,6 +248,9 @@ void AlertOverlay::paintEvent(QPaintEvent *)
 	path.addRoundedRect(card, 10.0, 10.0);
 	p.setRenderHint(QPainter::Antialiasing, true);
 	p.fillPath(path, cardColor);
+
+	p.save();
+	p.setClipRect(card);
 
 	int y = card.top() + padY;
 	const int x = card.left() + padX;
@@ -266,4 +273,6 @@ void AlertOverlay::paintEvent(QPaintEvent *)
 		p.setPen(QColor(255, 196, 196));
 		p.drawText(QRect(x, y, lineW, hintR.height()), flags, m_hint);
 	}
+
+	p.restore();
 }

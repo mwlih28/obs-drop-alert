@@ -99,7 +99,8 @@ private:
 	void setAlarm(bool on, DropKind kind, double value, const QString &detail = QString());
 
 	bool checkEvents(uint64_t nowNs, uint64_t lateMs);
-	static QString readOutputError();
+	bool holdingEvent(uint64_t nowNs) const;
+	static void readOutputErrors(QString &streamError, QString &recordError);
 
 	QTimer m_timer;
 	std::deque<Sample> m_samples;
@@ -110,10 +111,12 @@ private:
 	uint64_t m_lastOverNs = 0;
 
 	uint64_t m_lastPollNs = 0;
+	uint64_t m_lastAwakeMs = 0;
 
 	uint64_t m_holdUntilNs = 0;
 
-	QString m_lastError;
+	QString m_lastStreamError;
+	QString m_lastRecordError;
 
 	DropStatus m_status;
 

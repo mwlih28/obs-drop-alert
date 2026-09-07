@@ -29,10 +29,21 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include <algorithm>
 
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+
 namespace {
 
 constexpr uint64_t kNsPerSecond = 1000000000ull;
-constexpr uint64_t kSuspendLatenessMs = 60000;
+
+uint64_t awakeMs()
+{
+	ULONGLONG ticks = 0;
+	if (!QueryUnbiasedInterruptTime(&ticks))
+		return 0;
+	return (uint64_t)(ticks / 10000ull);
+}
 constexpr double kBytesPerGb = 1024.0 * 1024.0 * 1024.0;
 
 double ratePercent(int64_t droppedDelta, int64_t totalDelta)
@@ -177,16 +188,18 @@ void DropMonitor::start()
 {
 	m_samples.clear();
 	m_overCount = 0;
-	m_holdUntilNs = 0;
 	m_lastPollNs = 0;
-	m_lastError = readOutputError();
+	m_lastAwakeMs = 0;
+	if (!holdingEvent(os_gettime_ns()))
+		m_holdUntilNs = 0;
+	readOutputErrors(m_lastStreamError, m_lastRecordError);
 	m_timer.start();
 }
 
 void DropMonitor::stop()
 {
 	m_timer.stop();
-	if (m_status.active)
+	if (m_status.active && !holdingEvent(os_gettime_ns()))
 		setAlarm(false, DropKind::None, 0.0);
 	m_samples.clear();
 	m_overCount = 0;
@@ -243,8 +256,10 @@ void DropMonitor::poll()
 {
 
 	const uint64_t nowNs = os_gettime_ns();
-	const uint64_t lateMs = m_lastPollNs ? (nowNs - m_lastPollNs) / 1000000ull : 0;
+	const uint64_t awake = awakeMs();
+	const uint64_t lateMs = (m_lastAwakeMs && awake > m_lastAwakeMs) ? awake - m_lastAwakeMs : 0;
 	m_lastPollNs = nowNs;
+	m_lastAwakeMs = awake;
 
 	if (m_testActive)
 		return;
@@ -252,12 +267,13 @@ void DropMonitor::poll()
 	const Settings &s = settings();
 
 	if (s.onlyWhenActive && !obs_frontend_streaming_active() && !obs_frontend_recording_active()) {
-		if (m_status.active)
-			setAlarm(false, DropKind::None, 0.0);
 		m_samples.clear();
 		m_overCount = 0;
+		if (holdingEvent(nowNs))
+			return;
+		if (m_status.active)
+			setAlarm(false, DropKind::None, 0.0);
 		m_holdUntilNs = 0;
-		m_lastError.clear();
 		return;
 	}
 
@@ -359,31 +375,41 @@ void DropMonitor::evaluate(const Sample &now)
 	}
 }
 
-QString DropMonitor::readOutputError()
+void DropMonitor::readOutputErrors(QString &streamError, QString &recordError)
 {
-	QString error;
+	streamError.clear();
+	recordError.clear();
 
 	if (obs_output_t *out = obs_frontend_get_streaming_output()) {
 		if (const char *e = obs_output_get_last_error(out))
-			error = QString::fromUtf8(e);
+			streamError = QString::fromUtf8(e);
 		obs_output_release(out);
 	}
-	if (error.isEmpty()) {
-		if (obs_output_t *out = obs_frontend_get_recording_output()) {
-			if (const char *e = obs_output_get_last_error(out))
-				error = QString::fromUtf8(e);
-			obs_output_release(out);
-		}
+	if (obs_output_t *out = obs_frontend_get_recording_output()) {
+		if (const char *e = obs_output_get_last_error(out))
+			recordError = QString::fromUtf8(e);
+		obs_output_release(out);
 	}
+}
 
-	return error;
+bool DropMonitor::holdingEvent(uint64_t nowNs) const
+{
+	return m_status.active && isEventKind(m_status.kind) && nowNs < m_holdUntilNs;
 }
 
 bool DropMonitor::checkEvents(uint64_t nowNs, uint64_t lateMs)
 {
 	const Settings &s = settings();
 
-	const QString error = readOutputError();
+	QString streamError;
+	QString recordError;
+	readOutputErrors(streamError, recordError);
+
+	const QString prevStreamError = m_lastStreamError;
+	const QString prevRecordError = m_lastRecordError;
+	m_lastStreamError = streamError;
+	m_lastRecordError = recordError;
+
 	bool reconnecting = false;
 
 	if (obs_output_t *out = obs_frontend_get_streaming_output()) {
@@ -393,11 +419,16 @@ bool DropMonitor::checkEvents(uint64_t nowNs, uint64_t lateMs)
 
 	const uint64_t holdNs = (uint64_t)s.eventHoldSeconds * kNsPerSecond;
 
-	if (s.monitorOutputError && !error.isEmpty() && error != m_lastError) {
-		m_lastError = error;
-		m_holdUntilNs = nowNs + holdNs;
-		setAlarm(true, DropKind::OutputError, 0.0, error);
-		return true;
+	if (s.monitorOutputError) {
+		const QString fresh = (!streamError.isEmpty() && streamError != prevStreamError)
+					      ? streamError
+					      : (!recordError.isEmpty() && recordError != prevRecordError) ? recordError
+											                  : QString();
+		if (!fresh.isEmpty()) {
+			m_holdUntilNs = nowNs + holdNs;
+			setAlarm(true, DropKind::OutputError, 0.0, fresh);
+			return true;
+		}
 	}
 
 	if (s.monitorStreamDrop && reconnecting) {
@@ -406,7 +437,7 @@ bool DropMonitor::checkEvents(uint64_t nowNs, uint64_t lateMs)
 		return true;
 	}
 
-	if (s.monitorStall && lateMs >= (uint64_t)s.stallMs && lateMs < kSuspendLatenessMs) {
+	if (s.monitorStall && lateMs >= (uint64_t)s.stallMs) {
 		m_holdUntilNs = nowNs + holdNs;
 		setAlarm(true, DropKind::Stall, (double)lateMs / 1000.0);
 		return true;
@@ -424,8 +455,13 @@ bool DropMonitor::checkEvents(uint64_t nowNs, uint64_t lateMs)
 
 void DropMonitor::setAlarm(bool on, DropKind kind, double value, const QString &detail)
 {
-	if (m_status.active == on && m_status.kind == kind && m_status.detail == detail)
+	if (m_status.active == on && m_status.kind == kind && m_status.detail == detail) {
+		if (on && m_status.value != value) {
+			m_status.value = value;
+			emit alarmUpdated(m_status);
+		}
 		return;
+	}
 
 	m_status.active = on;
 	m_status.kind = kind;
