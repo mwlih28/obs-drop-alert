@@ -174,6 +174,11 @@ const DropMonitor::Sample *DropMonitor::windowStart() const
 
 void DropMonitor::poll()
 {
+	/* Test alarmi surerken olcum yapma. Yoksa asagidaki "yayin/kayit yokken
+	 * uyarma" dali test alarmini gercek alarm sanip ilk tikta sondurur. */
+	if (m_testActive)
+		return;
+
 	const Settings &s = settings();
 
 	if (s.onlyWhenActive && !obs_frontend_streaming_active() && !obs_frontend_recording_active()) {
@@ -302,18 +307,22 @@ void DropMonitor::setAlarm(bool on, DropKind kind, double value)
 
 void DropMonitor::fireTestAlarm()
 {
+	m_testActive = true;
 	m_status.active = true;
 	m_status.kind = DropKind::Network;
 	m_status.value = 42.0;
+	obs_log(LOG_INFO, "test alarm ON");
 	emit alarmStarted(m_status);
 }
 
 void DropMonitor::clearTestAlarm()
 {
+	m_testActive = false;
 	m_status.active = false;
 	m_status.kind = DropKind::None;
 	m_status.value = 0.0;
 	m_overCount = 0;
 	m_samples.clear();
+	obs_log(LOG_INFO, "test alarm OFF");
 	emit alarmCleared();
 }

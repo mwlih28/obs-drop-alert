@@ -105,6 +105,8 @@ private:
 	std::deque<Sample> m_samples;
 	uint64_t m_windowNs = 5ull * 1000000000ull;
 
+	/* Test alarmi elle acilip kapanir; izleme dongusu ona hic dokunmaz. */
+	bool m_testActive = false;
 	int m_overCount = 0;
 	uint64_t m_lastOverNs = 0;
 
